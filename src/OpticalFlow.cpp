@@ -3,6 +3,7 @@
 using namespace cv;
 using namespace cv::gpu;
 using namespace pcl;
+using namespace std;
 
 void ComputeOpticalFlow(const Mat &past, const Mat &current, const PointCloud<PointXYZRGBA>::ConstPtr &pastCloud, const PointCloud<PointXYZRGBA>::ConstPtr &currCloud, PointCloud<Normal>::Ptr &flow) {
 	Mat in1, in2, flow2d;
@@ -37,6 +38,7 @@ void ComputeOpticalFlow(const Mat &past, const Mat &current, const PointCloud<Po
 }
 
 void ComputeOpticalFlowGPU(const Mat &past, const Mat &current, const PointCloud<PointXYZRGBA>::ConstPtr &pastCloud, const PointCloud<PointXYZRGBA>::ConstPtr &currCloud, PointCloud<Normal>::Ptr &flow) {
+	try {
 	Mat in1, in2;
 	cvtColor(past,in1,CV_BGR2GRAY);
 	cvtColor(current,in2,CV_BGR2GRAY);
@@ -45,6 +47,8 @@ void ComputeOpticalFlowGPU(const Mat &past, const Mat &current, const PointCloud
 	cv::gpu::FarnebackOpticalFlow calc_flow;
 	Mat flowx, flowy;
 	calc_flow(d_frameL, d_frameR, d_flowx, d_flowy);
+	d_flowx.download(flowx);
+	d_flowy.download(flowy);
 	//calcOpticalFlowFarneback(in1,in2,flow2d,0.5f,2,5,2,7,1.5,0);
 	flow->height = flowx.rows;
 	flow->width = flowx.cols;
@@ -71,6 +75,13 @@ void ComputeOpticalFlowGPU(const Mat &past, const Mat &current, const PointCloud
 			}
 			++pInX; ++pInY; ++pOut; ++pCloud;
 		}
+	}
+	} catch(cv::Exception &e) {
+		cout << e.what() << endl;
+	} catch(std::exception &e) {
+
+	} catch(...) {
+
 	}
 }
 

@@ -69,6 +69,7 @@ void Display2dOF(Mat flow) {
 	cv::cvtColor(hsv, bgr, cv::COLOR_HSV2BGR);
 	imshow("Optical flow",bgr);
 }
+
 class SimpleOFViewer
 {
 public:
@@ -77,13 +78,13 @@ public:
 
 	void cloud_cb_ (const boost::shared_ptr<const KinectData> &data)
 	{
-		/*if (!viewer.wasStopped())
-		viewer.showCloud (cloud);*/
-		// estimate normals
 		if(!data->cloud.empty()) {
 			normalMutex.lock();
 			if(!first) {
-				ComputeOpticalFlow(past,data->image,sharedCloud,data->cloud.makeShared(),normals);
+				//double begin = pcl::getTime();
+				ComputeOpticalFlowGPU(past,data->image,sharedCloud,data->cloud.makeShared(),normals);
+				//double end = pcl::getTime();
+				//cout << "Time: " << (end - begin) << endl;
 				update = true;
 			} else
 				first = false;
@@ -125,7 +126,7 @@ public:
 	}
 
 	boost::shared_ptr<pcl::PointCloud<pcl::Normal>> normals;
-	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA>> sharedCloud, pastCloud;
+	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA>> sharedCloud;
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 	Mat past;
 	bool first, update;
