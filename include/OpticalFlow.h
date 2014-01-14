@@ -45,7 +45,7 @@ template <typename T> inline T Clamp(T a, T minn, T maxx)
 { return (a < minn) ? minn : ( (a > maxx) ? maxx : a ); }
 
 
-typedef pcl::PointCloud<pcl::PointXYZRGBA> NormalCloud;
+typedef pcl::PointCloud<pcl::PointXYZRGBA> PointCloudBgr;
 
 void ComputeOpticalFlow(const cv::Mat &past, const cv::Mat &current, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &pastCloud, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &currCloud, pcl::PointCloud<pcl::Normal>::Ptr &flow);
 void ComputeOpticalFlowGPU(const cv::Mat &past, const cv::Mat &current, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &pastCloud, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &currCloud, pcl::PointCloud<pcl::Normal>::Ptr &flow);

@@ -39,6 +39,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 #include <opencv2/highgui/highgui.hpp>
 #include "Edges.h"
 #include "OpticalFlow.h"
+#include "GraphSegmentation.h"
 
 using namespace std;
 using namespace pcl;
@@ -133,9 +134,55 @@ public:
 	boost::mutex normalMutex;
 };
 
+class SimpleSegmentViewer
+{
+public:
+	SimpleSegmentViewer () : viewer(new pcl::visualization::CloudViewer ("Original Viewer")), 
+		label(new pcl::PointCloud<pcl::PointXYZI>), segment(new pcl::PointCloud<pcl::PointXYZRGBA>), update(false) {}
+
+	void cloud_cb_ (const boost::shared_ptr<const KinectData> &data)
+	{
+		if(!data->cloud.empty()) {
+			stseg.AddSlice(data->cloud.makeShared(),2.5f,700,800,0.8f,700,800,label,segment);
+			//viewer1->showCloud(data->cloud.makeShared());
+			viewer->showCloud(segment);
+			//copyPointCloud(data->cloud,*sharedCloud);
+		}
+	}
+
+	void run ()
+	{
+		// create a new grabber for OpenNI devices
+		pcl::Grabber* my_interface = new pcl::MicrosoftGrabber();
+
+		// make callback function from member function
+		boost::function<void (const boost::shared_ptr<const KinectData>&)> f =
+		boost::bind (&SimpleSegmentViewer::cloud_cb_, this, _1);
+
+		my_interface->registerCallback (f);
+
+		//viewer.setBackgroundColor(0.0, 0.0, 0.5);
+		my_interface->start ();
+		
+		while (!viewer->wasStopped())
+		{
+			boost::this_thread::sleep (boost::posix_time::seconds (1));
+		}
+
+		my_interface->stop ();
+	}
+
+	boost::shared_ptr<PointCloud<PointXYZI>> label;
+	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA>> segment;
+	boost::shared_ptr<pcl::visualization::CloudViewer> viewer;
+	bool update;
+	boost::mutex normalMutex;
+	Segment3D stseg;
+};
+
 int main (int argc, char** argv) {
 	try {
-		SimpleOFViewer v;
+		SimpleSegmentViewer v;
 		v.run();
 	} catch (pcl::PCLException e) {
 		cout << e.detailedMessage() << endl;

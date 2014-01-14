@@ -79,7 +79,7 @@ void ComputeOpticalFlowGPU(const Mat &past, const Mat &current, const PointCloud
 	} catch(cv::Exception &e) {
 		cout << e.what() << endl;
 	} catch(std::exception &e) {
-
+		cout << e.what() << endl;
 	} catch(...) {
 
 	}

@@ -62,65 +62,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 
 #define TREE_LEVEL 0.5f
 
-typedef struct
-{
-	int rank;
-	int p;
-	int size;
-} uni_elt;
-
-class Universe
-{
-public:
-	Universe() : num(0) { }
-	Universe(int elements)
-	{
-		num = elements;
-		elts.resize(num);
-		std::vector<uni_elt>::iterator p = elts.begin();
-		int i = 0;
-		while(p != elts.end()) {
-			p->rank = 0;
-			p->size = 1;
-			p->p = i;
-			p++;
-			i++;
-		}
-	}
-	~Universe(){};
-	int find(int x)
-	{
-		int y = x;
-		while (y != elts[y].p)
-			y = elts[y].p;
-		elts[x].p = y;
-		return y;
-	};  
-	void join(int x, int y)
-	{
-		if (elts[x].rank > elts[y].rank)
-		{
-			elts[y].p = x;
-			elts[x].size += elts[y].size;
-		} 
-		else
-		{
-			elts[x].p = y;
-			elts[y].size += elts[x].size;
-			if (elts[x].rank == elts[y].rank)
-				elts[y].rank++;
-		}
-		num--;
-	}
-	void release() {
-		elts.clear();
-	}
-	int size(int x) const { return elts[x].size; }
-	int num_sets() const { return num; }
-	//should be private but I need to access some things
-	std::vector<uni_elt>elts;
-	int num;
-};
 
 class LABXYZUVW {
 public:
