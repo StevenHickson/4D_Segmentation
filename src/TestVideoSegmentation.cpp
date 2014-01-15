@@ -137,15 +137,18 @@ public:
 class SimpleSegmentViewer
 {
 public:
-	SimpleSegmentViewer () : viewer(new pcl::visualization::CloudViewer ("Original Viewer")), 
+	SimpleSegmentViewer () : viewer("Original Viewer"), 
 		label(new pcl::PointCloud<pcl::PointXYZI>), segment(new pcl::PointCloud<pcl::PointXYZRGBA>), update(false) {}
 
 	void cloud_cb_ (const boost::shared_ptr<const KinectData> &data)
 	{
 		if(!data->cloud.empty()) {
+			double begin = pcl::getTime();
 			stseg.AddSlice(data->cloud.makeShared(),2.5f,700,800,0.8f,700,800,label,segment);
+			double end = pcl::getTime();
+			cout << "Time: " << (end - begin) << endl;
 			//viewer1->showCloud(data->cloud.makeShared());
-			viewer->showCloud(segment);
+			viewer.showCloud(segment);
 			//copyPointCloud(data->cloud,*sharedCloud);
 		}
 	}
@@ -164,7 +167,7 @@ public:
 		//viewer.setBackgroundColor(0.0, 0.0, 0.5);
 		my_interface->start ();
 		
-		while (!viewer->wasStopped())
+		while (!viewer.wasStopped())
 		{
 			boost::this_thread::sleep (boost::posix_time::seconds (1));
 		}
@@ -174,7 +177,7 @@ public:
 
 	boost::shared_ptr<PointCloud<PointXYZI>> label;
 	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA>> segment;
-	boost::shared_ptr<pcl::visualization::CloudViewer> viewer;
+	pcl::visualization::CloudViewer viewer;
 	bool update;
 	boost::mutex normalMutex;
 	Segment3D stseg;

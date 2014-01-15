@@ -24,6 +24,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 #include "OpticalFlow.h"
 #include "Edges.h"
 #include "Segments.h"
+#include "BuildGraph.h"
+#include "RegionTree.h"
+#include <amp.h>
+#include <amp_math.h>
 
 typedef struct
 {

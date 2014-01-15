@@ -1,6 +1,4 @@
 #include "GraphSegmentation.h"
-#include <amp.h>
-#include <amp_math.h>
 //#include "RegionTree.h"
 
 #ifndef max
@@ -128,6 +126,7 @@ void iBuildGraph(const PointCloud<PointXYZRGBA>::ConstPtr &in,
 
 	Edge3D *p = edges;
 	Mat_<float>::const_iterator pR = smooth_r.begin<float>(), pG = smooth_g.begin<float>(), pB = smooth_b.begin<float>(), pD = smooth_d.begin<float>();
+	Mat_<float>::const_iterator pRBegin = pR, pGBegin = pG, pBBegin = pB, pDBegin = pD;
 	//PointCloud<Bgr>::ConstIterator pC = in.Begin();
 	for ( y = 0, ym = -1, yp = 1; y < height; y++, ym++, yp++)
 	{
@@ -139,8 +138,9 @@ void iBuildGraph(const PointCloud<PointXYZRGBA>::ConstPtr &in,
 				Edge3D edge;
 				edge.a = y * width + x;
 				edge.b = y * width + xp;
-				edge.w = fabsf(*pD - smooth_d.at<float>(edge.b));
-				edge.w2 =  sqrtf(square(*pR - smooth_r.at<float>(edge.b))+square(*pG - smooth_g.at<float>(edge.b))+square(*pB - smooth_b.at<float>(edge.b)));
+				edge.w = fabsf(*pD - *(pDBegin + edge.b));
+				edge.w2 =  sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+				edge.valid = true;
 				*p++ = edge;
 				num++;
 			}
@@ -149,8 +149,9 @@ void iBuildGraph(const PointCloud<PointXYZRGBA>::ConstPtr &in,
 				Edge3D edge;
 				edge.a = y * width + x;
 				edge.b = yp * width + x;
-				edge.w = fabsf(*pD - smooth_d.at<float>(edge.b));
-				edge.w2 =  sqrtf(square(*pR - smooth_r.at<float>(edge.b))+square(*pG - smooth_g.at<float>(edge.b))+square(*pB - smooth_b.at<float>(edge.b)));
+				edge.w = fabsf(*pD - *(pDBegin + edge.b));
+				edge.w2 =  sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+				edge.valid = true;
 				*p++ = edge;
 				num++;
 			}
@@ -159,8 +160,9 @@ void iBuildGraph(const PointCloud<PointXYZRGBA>::ConstPtr &in,
 				Edge3D edge;
 				edge.a = y * width + x;
 				edge.b = yp * width + xp;
-				edge.w = fabsf(*pD - smooth_d.at<float>(edge.b));
-				edge.w2 =  sqrtf(square(*pR - smooth_r.at<float>(edge.b))+square(*pG - smooth_g.at<float>(edge.b))+square(*pB - smooth_b.at<float>(edge.b)));
+				edge.w = fabsf(*pD - *(pDBegin + edge.b));
+				edge.w2 =  sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+				edge.valid = true;
 				*p++ = edge;
 				num++;
 			}
@@ -169,8 +171,9 @@ void iBuildGraph(const PointCloud<PointXYZRGBA>::ConstPtr &in,
 				Edge3D edge;
 				edge.a  = y * width + x;
 				edge.b  = ym * width + xp;
-				edge.w = fabsf(*pD - smooth_d.at<float>(edge.b));
-				edge.w2 =  sqrtf(square(*pR - smooth_r.at<float>(edge.b))+square(*pG - smooth_g.at<float>(edge.b))+square(*pB - smooth_b.at<float>(edge.b)));
+				edge.w = fabsf(*pD - *(pDBegin + edge.b));
+				edge.w2 =  sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+				edge.valid = true;
 				*p++ = edge;
 				num++;
 			}
@@ -188,6 +191,43 @@ void iBuildGraph(const PointCloud<PointXYZRGBA>::ConstPtr &in,
 	*num_edges = num;
 }
 
+void iBuildGraphCUDA(const PointCloud<PointXYZRGBA>::ConstPtr &in,
+					 float sigma_depth,
+					 float sigma_color,
+					 Edge3D *&edges,
+					 int *num_edges)
+{
+	int reserve_size = in->size()*4;
+	//printf("Reserve size = %d\n",reserve_size);
+	edges = (Edge3D*) calloc(reserve_size,sizeof(Edge3D));
+	if(edges == NULL) {
+		printf("Error, could not malloc\n");
+		return;
+	}
+	Mat R,G,B,D, smooth_r, smooth_g, smooth_b, smooth_d;
+	iExtractRGBDColorSpace(*in, B, G, R, D);
+	iSmooth(B, sigma_color, smooth_b);
+	iSmooth(G, sigma_color, smooth_g);
+	iSmooth(R, sigma_color, smooth_r);
+	iSmooth(D, sigma_depth, smooth_d);
+
+	//Normalize
+	//PointCloud<Bgr> norm;
+	//Normalize(in,&norm);
+
+	igpuBuildGraph(smooth_r, smooth_g, smooth_b, smooth_d, edges, reserve_size);
+	R.release();
+	G.release();
+	B.release();
+	D.release();
+	smooth_b.release();
+	smooth_g.release();
+	smooth_r.release();
+	smooth_d.release();
+	//I need to clean up the edges somehow
+	*num_edges = reserve_size;
+}
+
 bool lessThan (const Edge& a, const Edge& b) {
 	return a.w < b.w;
 }
@@ -201,12 +241,7 @@ void iSegment_graph(int num_vertices, int num_edges, Edge3D*& edges, float c, Un
 	Edge3D* pEdge = edges, *edgesEnd = pEdge + num_edges;
 	// sort edges by weight
 	concurrency::parallel_sort(pEdge, edgesEnd);
-	//sort(pEdge,edgesEnd,lessThanDepth);
-	//thrust::device_vector<Edge3D> d_vec;
-	//thrust::copy(pEdge,edgesEnd,d_vec.begin());
-	//thrust::sort(d_vec.begin(),d_vec.end(), thrust::minus<Edge3D>());
-	//thrust::copy(d_vec.begin(),d_vec.end(),pEdge);
-	// make a disjoint-set forest
+	//thrustsort(pEdge,edgesEnd);
 
 	// init thresholds
 	float *threshold = new float[num_vertices];
@@ -218,18 +253,20 @@ void iSegment_graph(int num_vertices, int num_edges, Edge3D*& edges, float c, Un
 	// for each edge, in non-decreasing weight order...
 	while(pEdge != edgesEnd)
 	{
-		// components conected by this edge
-		int a = u->find(pEdge->a);
-		int b = u->find(pEdge->b);
-		if (a != b /*&& a >= 0 && b>= 0 && a < num_vertices && b < num_vertices*/) {
-			if ((pEdge->w <= threshold[a]) &&
-				(pEdge->w <= threshold[b])) {
-					u->join(a, b);
-					a = u->find(a);
-					if(a < num_vertices && a >= 0)
-						threshold[a] = pEdge->w + THRESHOLD(u->size(a), c);
-					else
-						printf("a is %d, which is out of bounds\n",a);
+		if(pEdge->valid) {
+			// components conected by this edge
+			int a = u->find(pEdge->a);
+			int b = u->find(pEdge->b);
+			if (a != b /*&& a >= 0 && b>= 0 && a < num_vertices && b < num_vertices*/) {
+				if ((pEdge->w <= threshold[a]) &&
+					(pEdge->w <= threshold[b])) {
+						u->join(a, b);
+						a = u->find(a);
+						if(a < num_vertices && a >= 0)
+							threshold[a] = pEdge->w + THRESHOLD(u->size(a), c);
+						else
+							printf("a is %d, which is out of bounds\n",a);
+				}
 			}
 		}
 		pEdge++;
@@ -244,7 +281,7 @@ void iSegmentStep2_graph(int num_vertices, int num_edges, Edge3D*& edges, float 
 	Edge3D* pEdge = edges, *edgesEnd = pEdge + num_edges;
 	// sort edges by weight
 	concurrency::parallel_sort(pEdge, edgesEnd,lessThan3D);
-	// make a disjoint-set forest
+	//thrustsort2(pEdge,edgesEnd);
 
 	// init thresholds
 	float *threshold = new float[num_vertices];
@@ -256,21 +293,23 @@ void iSegmentStep2_graph(int num_vertices, int num_edges, Edge3D*& edges, float 
 	// for each edge, in non-decreasing weight order...
 	while(pEdge != edgesEnd)
 	{
-		// components conected by this edge
-		int a = u1.find(pEdge->a);
-		int b = u1.find(pEdge->b);
-		if (a == b) {
-			a = u2->find(pEdge->a);
-			b = u2->find(pEdge->b);
-			if(a != b) {
-				if ((pEdge->w2 <= threshold[a]) &&
-					(pEdge->w2 <= threshold[b])) {
-						u2->join(a, b);
-						a = u2->find(a);
-						if(a < num_vertices && a >= 0)
-							threshold[a] = pEdge->w2 + THRESHOLD(u2->size(a), c);
-						else
-							printf("a is %d, which is out of bounds\n",a);
+		if(pEdge->valid) {
+			// components conected by this edge
+			int a = u1.find(pEdge->a);
+			int b = u1.find(pEdge->b);
+			if (a == b) {
+				a = u2->find(pEdge->a);
+				b = u2->find(pEdge->b);
+				if(a != b) {
+					if ((pEdge->w2 <= threshold[a]) &&
+						(pEdge->w2 <= threshold[b])) {
+							u2->join(a, b);
+							a = u2->find(a);
+							if(a < num_vertices && a >= 0)
+								threshold[a] = pEdge->w2 + THRESHOLD(u2->size(a), c);
+							else
+								printf("a is %d, which is out of bounds\n",a);
+					}
 				}
 			}
 		}
@@ -285,11 +324,13 @@ inline void iJoin_graph(Edge3D *&edges, int num_edges, int min_size, Universe *u
 	Edge3D *pEdge = edges, *edgesEnd = edges + num_edges;
 	while(pEdge != edgesEnd)
 	{
-		int a = u->find(pEdge->a); 
-		int b = u->find(pEdge->b);
-		if ((a != b) && ((u->size(a) < min_size) || (u->size(b) < min_size)))
-		{
-			u->join(a, b);
+		if(pEdge->valid) {
+			int a = u->find(pEdge->a); 
+			int b = u->find(pEdge->b);
+			if ((a != b) && ((u->size(a) < min_size) || (u->size(b) < min_size)))
+			{
+				u->join(a, b);
+			}
 		}
 		pEdge++;
 	}
@@ -359,9 +400,7 @@ int Segment3D::Initialize(
 			pO->intensity = segment;
 			++pI; ++pO; ++i;
 		}
-		//RegionTree3D tree;
-		//prevTree.Create(in,*out,prevU_C.num_sets(),0);
-		//origTree = prevTree;
+		prevTree.Create(*in,*out,prevU_C.num_sets(),0);
 		m_count++;
 		PointCloudBgr::iterator pPseudo = out_color->begin();
 		pO = out->begin();
@@ -427,9 +466,14 @@ int Segment3D::AddSlice(
 			pO->intensity = segment;
 			++pI; ++pO; ++i;
 		}
+		currTree.Create(*in,*out,currU_C.num_sets(),m_maxLabel);
+		currTree.PropagateRegionHierarchy(75);
+		currTree.ImplementSegmentation(TREE_LEVEL);
 		m_maxLabel += currU_C.num_sets();
 		m_count++;
-		Merge();
+		/*Merge();
+		prevTree.Release();
+		prevTree = currTree;*/
 		//set past value to current
 		PointCloudBgr::iterator pPseudo = out_color->begin();
 		pO = out->begin();
@@ -448,6 +492,6 @@ int Segment3D::AddSlice(
 }
 
 void Segment3D::Merge() {
-	//currTree.TemporalCorrection(prevTree,1);
+	currTree.TemporalCorrection(prevTree,1);
 	//currTree.TemporalCorrection(prevList,currList,1);
 }

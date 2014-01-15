@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012 Steven Hickson
+Copyright (C) 2014 Steven Hickson
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,27 +17,25 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 
 */
 
-#ifndef EDGES_H
-#define EDGES_H
+#ifndef BUILDGRAPH_H
+#define BUILDGRAPH_H
 
-class Edge {
-public:
-	float w;
-	int a, b;
-	bool valid;
-	Edge() : w(0), a(0), b(0), valid(false) { };
+#include <cuda_runtime.h>
+#include <npp.h>
+#include "opencv2/gpu/devmem2d.hpp"
+#include "opencv2/gpu/device/common.hpp"
+#include <cuda_runtime_api.h>
+#include <cufft.h>
+#include <cublas.h>
+#include "opencv2/gpu/gpu.hpp"
+#include "Edges.h"
+#include <thrust/version.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+ #include <thrust/sort.h>
 
-	bool operator< (const Edge &other) const {
-		return (w < other.w);
-	}
-};
-
-class Edge3D : public Edge {
-public:
-	float w2;
-
-	Edge3D() :  Edge(), w2(0) { };
-};
-
+void igpuBuildGraph(cv::Mat &R, cv::Mat &G, cv::Mat &B, cv::Mat &D, Edge3D *edges, int numEdges);
+void thrustsort(Edge3D *pEdge, Edge3D *edgesEnd);
+void thrustsort2(Edge3D *pEdge, Edge3D *edgesEnd);
 
 #endif

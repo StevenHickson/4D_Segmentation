@@ -22,6 +22,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 #include "OpticalFlow.h"
 #include "Edges.h"
 #include <vector>
+#include <amp.h>
+#include <amp_math.h>
 
 #define NUM_BINS 20
 #define NUM_BINS_XYZ 30
@@ -62,6 +64,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 
 #define TREE_LEVEL 0.5f
 
+class LAB {
+public:
+	int l, a, b;
+	
+	LAB() : l(0), a(0), b(0) { }
+	LAB(int r_val, int g_val, int b_val);
+	inline void RGB2XYZ(int r, int g, int b, float *x, float *y, float *z);
+	inline void XYZ2LAB(float x, float y, float z, int *l, int *a, int *b);
+};
 
 class LABXYZUVW {
 public:
@@ -125,7 +136,7 @@ class RegionTreeType {
 public:
 	T** m_nodes;
 	//T *region_list;
-	vector<T> region_list;
+	std::vector<T> region_list;
 	int m_size,m_width,m_height;
 	bool m_propagated;
 	int numRegions, totRegions; //temporary, lets add every time we new
@@ -141,37 +152,18 @@ public:
 	}
 
 	void Release() {
-		/*printf("region_list 5: %p\n",region_list);
-		if(region_list != NULL) {
-		//Need to call region release for each region
-		for(int i = 0; i < numRegions; i++)
-		region_list[i].Release();
-		printf("region_list 6: %p\n",region_list);
-		//free(region_list);
-		//delete region_list;
-		region_list = NULL;
-		}*/
-		/*for(int i = 0; i < region_list.size(); i++)
-		region_list[i].Release();*/
-		/*region_list.clear();
-		if(m_nodes != NULL) {
-		delete[] m_nodes;
-		m_nodes = NULL;
-		}
-		m_size = m_width = m_height = 0;
-		m_propagated = false;*/
 	}
 
-	void Create(ColorContainer &in, LabelContainer &labels, int num_segments, int start_label);
-	void Create(PointCloudBgr &in1, PointCloudInt &labels1, PointCloudBgr &in2, PointCloudInt &labels2, FlowInfo &flow, int num_segments, int start_label);
-	void Create(deque<PointCloudBgr> &in, deque<FlowInfo> &flow, PointCloudInt *labels, int num_segments, int start_label);
+	void Create(const ColorContainer &in, LabelContainer &labels, int num_segments, int start_label);
+	void TemporalCorrection(RegionTreeType<T,HistContainer,ColorContainer,LabelContainer> &past, int level);
+	void PropagateRegionHierarchy(int min_size = 0);
 	void UpdateCloud(int level);
+	/*
 	void GetRegionList(float level, vector<T*> *list);
 	void UpdateRegionList(vector<T*> &list);
-	void TemporalCorrection(RegionTreeType<T,HistContainer,ColorContainer,LabelContainer> &past, int level);
 	void TemporalCorrection(vector<T*> &past_list, int level);
 	void TemporalCorrection(vector<T*> &past_list, vector<T*> &curr_list, int level);
-	void PropagateRegionHierarchy(int min_size = 0);
+	*/
 
 	void ImplementSegmentation(float level) {
 		if(!m_propagated)

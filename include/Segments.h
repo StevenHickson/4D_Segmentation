@@ -20,10 +20,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 #define SEGMENTS_H
 
 #include "OpticalFlow.h"
+#include "RegionTree.h"
 
 class Segment3D {
 private:
-	//RegionTree3D prevTree, currTree, origTree;
+	RegionTree3D prevTree, currTree;
 	//std::vector<Region3D*> prevList, currList;
 	cv::Vec3b *m_colors;
 	bool m_init;
