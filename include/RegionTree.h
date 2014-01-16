@@ -96,6 +96,7 @@ public:
 
 class Region3D {
 public:
+	Region3D() : m_numRegions(0), m_level(0), m_size(0), m_hist(NULL) { m_regions[0] = NULL; m_regions[1] = NULL; };
 	Region3D* m_regions[2]; //regions beneath this one
 	std::vector<pcl::PointXYZI*> m_nodes;
 	int m_numRegions; //number of regions
@@ -105,8 +106,6 @@ public:
 	cv::Point2f m_centroid; //if m_leaf 2D location, else centroid
 	pcl::PointXYZI m_centroid3D; //if a leaf (level 1), 3D location and value, else centroid and label
 	LABXYZ *m_hist;
-	LABXYZ *m_hist_array;
-	unsigned int m_hist_num;
 	std::vector<int> m_neighbors; //neighboring regions
 
 	inline void InitializeRegion(pcl::PointXYZI *in, cv::Vec3b &color, const int label, const int i, const int j, const int level);
@@ -174,6 +173,6 @@ public:
 	}
 };
 
-typedef RegionTreeType<Region3D,LABXYZ,pcl::PointCloud<pcl::PointXYZRGBA>,pcl::PointCloud<pcl::PointXYZI>> RegionTree3D;
+typedef RegionTreeType<Region3D,LABXYZ,pcl::PointCloud<pcl::PointXYZRGBA>,pcl::PointCloud<pcl::PointXYZI> > RegionTree3D;
 
 #endif //REGION_TREE_H

@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 
 #include <iostream>
 #include <pcl/io/pcd_io.h>
+#include <pcl/io/ply_io.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl/common/time.h>
@@ -102,7 +103,7 @@ public:
 
 		// make callback function from member function
 		boost::function<void (const boost::shared_ptr<const KinectData>&)> f =
-		boost::bind (&SimpleOFViewer::cloud_cb_, this, _1);
+			boost::bind (&SimpleOFViewer::cloud_cb_, this, _1);
 
 		my_interface->registerCallback (f);
 
@@ -126,13 +127,29 @@ public:
 		my_interface->stop ();
 	}
 
-	boost::shared_ptr<pcl::PointCloud<pcl::Normal>> normals;
-	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA>> sharedCloud;
+	boost::shared_ptr<pcl::PointCloud<pcl::Normal> > normals;
+	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA> > sharedCloud;
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 	Mat past;
-	bool first, update;
+	volatile bool first, update;
 	boost::mutex normalMutex;
 };
+
+inline void MakeCloudDense(PointCloud<PointXYZRGBA> &cloud) {
+	PointCloud<PointXYZRGBA>::iterator p = cloud.begin();
+	cloud.is_dense = true;
+	for(int j = 0; j < cloud.height; j++) {
+		for(int i = 0; i < cloud.width; i++) {
+			if(_isnan(p->z)) {
+				p->x = float(((float)i - KINECT_CX_D) * KINECT_FX_D);
+				p->y = float(((float)j - KINECT_CY_D) * KINECT_FY_D);
+				p->z = 0;
+			}
+			//p->a = 255;
+			++p;
+		}
+	}
+}
 
 class SimpleSegmentViewer
 {
@@ -143,13 +160,20 @@ public:
 	void cloud_cb_ (const boost::shared_ptr<const KinectData> &data)
 	{
 		if(!data->cloud.empty()) {
+			normalMutex.lock();
 			double begin = pcl::getTime();
-			stseg.AddSlice(data->cloud.makeShared(),2.5f,700,800,0.8f,700,800,label,segment);
+			PointCloud<PointXYZRGBA> cloud = data->cloud;
+			MakeCloudDense(cloud);
+			//io::savePLYFileASCII<PointXYZRGBA>("test2.ply",cloud);
+			stseg.AddSlice(cloud,2.5f,700,800,0.8f,700,800,label,segment);
 			double end = pcl::getTime();
 			cout << "Time: " << (end - begin) << endl;
+			//io::savePLYFileASCII<PointXYZRGBA>("test3.ply",*segment);
+			//pcl::io::savePCDFile("output.pcd",*segment);
 			//viewer1->showCloud(data->cloud.makeShared());
-			viewer.showCloud(segment);
+			//viewer.showCloud(segment);
 			//copyPointCloud(data->cloud,*sharedCloud);
+			normalMutex.unlock();
 		}
 	}
 
@@ -160,23 +184,27 @@ public:
 
 		// make callback function from member function
 		boost::function<void (const boost::shared_ptr<const KinectData>&)> f =
-		boost::bind (&SimpleSegmentViewer::cloud_cb_, this, _1);
+			boost::bind (&SimpleSegmentViewer::cloud_cb_, this, _1);
 
 		my_interface->registerCallback (f);
 
 		//viewer.setBackgroundColor(0.0, 0.0, 0.5);
 		my_interface->start ();
-		
-		while (!viewer.wasStopped())
+
+		bool finished = false;
+		while (!finished)
 		{
+			normalMutex.lock();
+			finished = viewer.wasStopped();
+			normalMutex.unlock();
 			boost::this_thread::sleep (boost::posix_time::seconds (1));
 		}
 
 		my_interface->stop ();
 	}
 
-	boost::shared_ptr<PointCloud<PointXYZI>> label;
-	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA>> segment;
+	boost::shared_ptr<PointCloud<PointXYZI> > label;
+	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA> > segment;
 	pcl::visualization::CloudViewer viewer;
 	bool update;
 	boost::mutex normalMutex;

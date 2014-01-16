@@ -108,7 +108,7 @@ LABXYZ::LABXYZ(int r_val, int g_val, int b_val, float x_val, float y_val, float 
 }
 
 inline void Region3D::InitializeRegion(PointXYZI *in, Vec3b &color, const int label, const int i, const int j, const int level) {
-	if(!_isnan(in->z)) {
+	//if(!_isnan(in->z)) {
 		m_level  = level;
 		m_size = 1;
 		m_hist = new LABXYZ[NUM_BINS_XYZ]();
@@ -129,11 +129,12 @@ inline void Region3D::InitializeRegion(PointXYZI *in, Vec3b &color, const int la
 		m_nodes.push_back(in);
 		m_regions[0] = m_regions[1] = NULL;
 		m_numRegions = 0;
-	}
+	//}
 }
 
 inline void Region3D::InitializeRegion(Region3D *node1, Region3D *node2, int level, int min_size) {
-	if(node1->m_size <= 0 || node2->m_size <= 0) {
+	assert(node1 != NULL && node2 != NULL);
+	if(node1 == NULL || node2 == NULL || node1->m_size <= 0 || node2->m_size <= 0) {
 		printf("Error, this should never happen\n");
 	}
 	/*if(node1->m_level == node2->m_level) {
@@ -183,7 +184,7 @@ inline void Region3D::InitializeRegion(Region3D *node1, Region3D *node2, int lev
 }
 
 inline void Region3D::AddNode(PointXYZI *in, Vec3b &color, const int i, const int j) {
-	if(!_isnan(in->z)) {
+	//if(!_isnan(in->z)) {
 		LABXYZ labxyz = LABXYZ(color[2],color[1],color[0],in->x,in->y,in->z);
 		m_hist[Clamp(Round(labxyz.l * HIST_MUL_L), 0, NUM_BINS)].l++;
 		m_hist[Clamp(Round(labxyz.a * HIST_MUL_A), 0, NUM_BINS)].a++;
@@ -198,7 +199,7 @@ inline void Region3D::AddNode(PointXYZI *in, Vec3b &color, const int i, const in
 		m_centroid3D.y += in->y;
 		m_centroid3D.z += in->z;
 		m_nodes.push_back(in);
-	}
+	//}
 }
 
 inline void MinMax(const PointCloudInt &cloud, int *min, int *max) {
@@ -230,62 +231,72 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int nu
 	PointCloudInt::iterator pLabel = labels.begin();
 	int loc, label, i, j;
 	const int safeWidth = in.width - 1, safeHeight = in.height - 1;
-	Region3D* pRegion;
+	Region3D* pRegion = NULL;
 	//printf("Original num of Segments: %d\n",num_segments);
 	numRegions = 0;
-	totRegions = (num_segments + 2) << 1;
-	//region_list = new Region3D[totRegions]();
-	//delete region_list;
+	totRegions = (num_segments + 2) << 1 + 1;
 	region_list.resize(totRegions);
-	//region_list = (Region3D*) malloc(totRegions * sizeof(Region3D));
-	//printf("region_list 1: %p\n",region_list);
 	float bad_point = std::numeric_limits<float>::quiet_NaN ();
 	for(j = 0; j < in.height; j++) {
 		for(i = 0; i < in.width; i++) {
-			if(!_isnan(pIn->z)) {
+			//if(!_isnan(pIn->z)) {
 				//for each voxel, add to the appropriate region and compute important values
 				loc = lookup[int(pLabel->intensity)];
 				//Am I a new region?
 				if(loc == -1) {
 					//I'm a new region, initialize
+					if(pLabel->intensity>= max) {
+						printf("Vector out of range\n");
+					}
 					lookup[int(pLabel->intensity)] = current;
-					pRegion = &(region_list[numRegions]);
-					//pRegion->InitializeRegion(pLabel, pIn->value, pLabel->value, i, j, 1);
+					if(numRegions >= totRegions) {
+						printf("Vector out of range\n");
+					}
 					region_list[numRegions].InitializeRegion(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r), current + start_label, i, j, 1);
+					pRegion = &(region_list[numRegions]);
+					if(current >= totRegions) {
+						printf("Vector out of range\n");
+					}
 					m_nodes[current] = pRegion;
 					numRegions++;
 					current++;
 				}
-			}
+			//}
 			pIn++; pLabel++;
 		}
 	}
+	region_list.shrink_to_fit();
+	region_list.resize(numRegions);
 	pIn = in.begin();
 	pLabel = labels.begin();
-	Region3D *tmp;
+	Region3D *tmp = NULL;
 	for(j = 0; j < in.height; j++) {
 		for(i = 0; i < in.width; i++) {
-			if(!_isnan(pIn->z)) {
+			//if(!_isnan(pIn->z)) {
 				//I'm not new, add me appropriately
 				//Add node to appropriately region list
 				loc = lookup[int(pLabel->intensity)];
 				pRegion = &(region_list[loc]);
+				assert(pRegion != NULL);
 				region_list[loc].AddNode(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r),i,j);
 				//Check for neighbors
 				if(i < safeWidth) {
 					label = lookup[int((pLabel + 1)->intensity)];
 					tmp = &(region_list[label]);
+					assert(tmp != NULL);
 					if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
 						pRegion->m_neighbors.push_back(label);
 					if(j < safeHeight) {
 						label = lookup[int((pLabel + in.width + 1)->intensity)];
 						tmp = &(region_list[label]);
+						assert(tmp != NULL);
 						if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
 							pRegion->m_neighbors.push_back(label);
 					}
 					if(j > 0) {
 						label = lookup[int((pLabel - in.width + 1)->intensity)];
 						tmp = &(region_list[label]);
+						assert(tmp != NULL);
 						if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
 							pRegion->m_neighbors.push_back(label);
 					}
@@ -293,22 +304,23 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int nu
 				if(j < safeHeight) {
 					label = lookup[int((pLabel + in.width)->intensity)];
 					tmp = &(region_list[label]);
+					assert(tmp != NULL);
 					if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
 						pRegion->m_neighbors.push_back(label);
 				}
-			}
+			//}
 			pIn++; pLabel++;
 		}
 	}
 	//adjust means and centroids and such
 	//pRegion = out->m_nodes[0];
 	for(i = 0; i < num_segments; i++) {
-		if(region_list[i].m_hist != NULL) {
-			region_list[i].m_centroid.x /= pRegion->m_size;
-			region_list[i].m_centroid.y /= pRegion->m_size;
-			region_list[i].m_centroid3D.x /= pRegion->m_size;
-			region_list[i].m_centroid3D.y /= pRegion->m_size;
-			region_list[i].m_centroid3D.z /= pRegion->m_size;
+		if(m_nodes[i] != NULL) {
+			m_nodes[i]->m_centroid.x /= m_nodes[i]->m_size;
+			m_nodes[i]->m_centroid.y /= m_nodes[i]->m_size;
+			m_nodes[i]->m_centroid3D.x /= m_nodes[i]->m_size;
+			m_nodes[i]->m_centroid3D.y /= m_nodes[i]->m_size;
+			m_nodes[i]->m_centroid3D.z /= m_nodes[i]->m_size;
 		}
 	}
 	delete[] lookup;
@@ -320,7 +332,7 @@ void SetBranch(Region3D* region, int level, int label) {
 		//I should set the label
 		label = region->m_centroid3D.intensity;
 	}
-	if(region->m_numRegions != 0 && region->m_regions != NULL) {
+	if(region->m_numRegions != 0 && region->m_regions != NULL && region->m_regions[0] != NULL && region->m_regions[1] != NULL) {
 		//I am not at the leaf level, tell my children to do proper
 		Region3D **branch = region->m_regions;
 		for(int i = 0; i < region->m_numRegions; i++) {
@@ -439,80 +451,70 @@ void RegionTree3D::TemporalCorrection(RegionTree3D &past, int level) {
 	} 
 }
 
-void UpdateTable(Region3D* child1, Region3D* child2, Region3D* father, Region3D**  lookup, int size) {
+void UpdateTable(Region3D* child1, Region3D* child2, Region3D* father, vector<Region3D> &lookup) {
 	//for every value in the table, if it is = to child1 or = to child2, set it = to father
-	Region3D **p = lookup, **pEnd = lookup + size;
-	while(p != pEnd) {
-		if(*p == child1 || *p == child2)
-			*p = father;
+	vector<Region3D>::iterator p = lookup.begin();
+	while(p != lookup.end()) {
+		if(&(*p) == child1 || &(*p) == child2)
+			*p = *father;
 		p++;
 	}
 }
 
+
 void RegionTree3D::PropagateRegionHierarchy(int min_size) {
 	//lets start by making a handy label lookup table
-	Region3D** lookup;
 	//find max label
-	Region3D **p = m_nodes, **pEnd = m_nodes + m_size;
+
+	vector<Region3D>::iterator p = region_list.begin();
 	int num_edges = 0;
-	int max = (*p)->m_centroid3D.intensity;
-	while(p != pEnd) {
-		int label = (*p)->m_centroid3D.intensity;
-		if(label > max)
-			max = label;
-		num_edges += (*p)->m_neighbors.size();
+	while(p != region_list.end()) {
+		num_edges += p->m_neighbors.size();
 		p++;
 	}
-	lookup = new Region3D*[max]();
 	int i = 0;
-	p = m_nodes;
-	while(p != pEnd) {
-		lookup[int((*p)->m_centroid3D.intensity)] = *p;
-		p++;
-	}
 	//printf("Max found as %d, size: %d, num_edges: %d\n",max,m_size,num_edges);
 	//lets build the a new universe with edges between the regions and their neighbors with the index being the segment label
 	Edge* edges = new Edge[num_edges]();
-	p = m_nodes;
+	p = region_list.begin();
 	Edge *pEdge = edges, *edgesEnd = edges + num_edges;
-	while(p != pEnd) {
-		vector<int>::const_iterator pNeighbors = (*p)->m_neighbors.begin(), pNeighborEnd = (*p)->m_neighbors.end();
+	while(p != region_list.end()) {
+		vector<int>::const_iterator pNeighbors = p->m_neighbors.begin(), pNeighborEnd = p->m_neighbors.end();
 		while(pNeighbors != pNeighborEnd) {
-			pEdge->a = (*p)->m_centroid3D.intensity;
+			//if(lookup[*pNeighbors] != NULL) {
+			pEdge->a = i;
 			pEdge->b = *pNeighbors;
-			//I'm not sure which of these is better, basing it off the size or the Histogram difference. Should be tested empirically.
-			pEdge->w = (float)HistDifference(**p,*(lookup[*pNeighbors]));// (float)(*p)->m_size;
-			//pEdge->w = (float)(*p)->m_size;
-			pNeighbors++;
+			//pEdge->w = (float)HistDifference(**p,*(lookup[*pNeighbors]));// (float)(*p)->m_size;
+			//pEdge->w = (float)HistDifference(**p,*(*p)->m_neighbor_map[*pNeighbors]);// (float)(*p)->m_size;
+			//assert(region_list[*pNeighbors] != NULL);
+			pEdge->w = (float)HistDifference(*p,region_list[*pNeighbors]);
 			pEdge++;
-			i++;
+			//}
+			pNeighbors++;
 		}
+		i++;
 		p++;
 	}
 
 	//printf("Graph built, went through %d Edges\n",i);
 	//now that we are done building the graph, join it upwards recursively after sorting it
-	concurrency::parallel_sort(edges, edgesEnd);
+	parallel_sort(edges, edgesEnd);
 
 	//now we should combine neighbors into higher level regions, this is tricky
 	//for each edge, create a new region that points to the regions the edge connects, then recompute the new region statistics and point the lookup table to this new region
 	pEdge = edges;
 	i=0;
 	int current = 0;
-	//printf("Original: %d, ",numRegions);
-	Region3D *father;
 	while(pEdge != edgesEnd) {			
-		Region3D *reg1 = lookup[pEdge->a], *reg2 = lookup[pEdge->b];
-		if(reg1 != reg2 && reg1->m_centroid3D.intensity != reg2->m_centroid3D.intensity) {
-			father = &(region_list[numRegions]);
-			numRegions++;
-			assert(numRegions < totRegions);
-			father->InitializeRegion(reg1,reg2,current,min_size);
+		Region3D reg1 = region_list[pEdge->a], reg2 = region_list[pEdge->b];
+		if(reg1.m_centroid3D.intensity != reg2.m_centroid3D.intensity) {
+			Region3D *father = new Region3D();
+			father->InitializeRegion(&reg1,&reg2,current,min_size);
 			//Instead of this, I should go through the whole table looking up the old pointer values and replace them with the new pointer values
-			UpdateTable(reg1,reg2,father,lookup,max);
+			UpdateTable(&reg1,&reg2,father,region_list);
 			//this is just in case, I probably don't need to do this
-			lookup[pEdge->a] = father;
-			lookup[pEdge->b] = father;
+			region_list[pEdge->a] = *father;
+			region_list[pEdge->b] = *father;
 		}
 		pEdge++;
 		i++;
@@ -521,15 +523,12 @@ void RegionTree3D::PropagateRegionHierarchy(int min_size) {
 	}
 	//printf("Graph joined, went through %d Edges\n",i);
 	//If everything goes well, there should be only one region left.
-	delete[] m_nodes;
+	delete m_nodes;
 	m_size = 1;
 	m_nodes = new Region3D*[1]();
-	//printf("Final: %d\n",numRegions);
 	pEdge--;
-	m_nodes[0] = lookup[pEdge->a];
-	//m_nodes[0] = new Region3D();
-	//*(m_nodes[0] ) = *(lookup[pEdge->a]);
+	m_nodes[0] = &region_list[pEdge->a];
 	m_propagated = true;
 	//delete lookup; //somehow I must have already deleted this?
-	delete[] edges;
+	delete edges;
 }

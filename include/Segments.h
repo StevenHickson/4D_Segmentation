@@ -30,7 +30,7 @@ private:
 	bool m_init;
 	int m_maxLabel, m_count;
 
-	int Initialize(const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &in, 
+	int Initialize(const pcl::PointCloud<pcl::PointXYZRGBA> &in, 
 		float sigma_depth, 
 		float c_depth, 
 		int depth_min_size,
@@ -45,7 +45,7 @@ public:
 	Segment3D() : m_init(false), m_maxLabel(0) { };
 	~Segment3D() { };
 
-	int AddSlice(const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &in, 
+	int AddSlice(const pcl::PointCloud<pcl::PointXYZRGBA> &in, 
 		float sigma_depth, 
 		float c_depth, 
 		int depth_min_size,
