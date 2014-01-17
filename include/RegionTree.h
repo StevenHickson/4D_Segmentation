@@ -67,7 +67,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 class LAB {
 public:
 	int l, a, b;
-	
+
 	LAB() : l(0), a(0), b(0) { }
 	LAB(int r_val, int g_val, int b_val);
 	inline void RGB2XYZ(int r, int g, int b, float *x, float *y, float *z);
@@ -117,14 +117,21 @@ public:
 	}
 
 	void Release() {
+		if(m_numRegions > 0 && m_regions != NULL) {
+			for(int i = 0; i < m_numRegions; i++) {
+				if(m_regions[i] != NULL) {
+					m_regions[i]->Release();
+					delete m_regions[i];
+				}
+			}
+			if(m_hist != NULL) {
+				delete[] m_hist;
+				m_hist = NULL;
+			}
+			m_regions[0] = m_regions[1] = NULL;
+		}
 		m_numRegions = m_level = -1;
 		m_size = 0;
-		//printf("Deleting hist\n");
-		if(m_hist != NULL) {
-			delete m_hist;
-			m_hist = NULL;
-		}
-		m_regions[0] = m_regions[1] = NULL;
 		m_nodes.clear();
 		m_neighbors.clear();
 	}
@@ -135,7 +142,7 @@ class RegionTreeType {
 public:
 	T** m_nodes;
 	//T *region_list;
-	std::vector<T> region_list;
+	std::vector<T*> region_list;
 	int m_size,m_width,m_height;
 	bool m_propagated;
 	int numRegions, totRegions; //temporary, lets add every time we new
@@ -147,10 +154,24 @@ public:
 	RegionTreeType() : m_size(0), m_width(0), m_height(0), m_nodes(NULL), m_propagated(false) { }
 	RegionTreeType(int regions, int width, int height) : m_size(regions), m_width(width), m_height(height), m_propagated(false) {
 		//need to figure out why this is
-		m_nodes = new T*[(regions + 2) << 1 + 1]();
+		int tmp = (regions + 2) << 1 + 1;
+		m_nodes = new T*[tmp]();
+		for(int i = 0; i < tmp; i++)
+			m_nodes[i] = NULL;
 	}
 
 	void Release() {
+		//Need to call region release for each region
+		/*for(int i = 0; i < region_list.size(); i++)
+		region_list[i].Release();*/
+		if(m_nodes != NULL) {
+			(*m_nodes)->Release();
+			delete[] m_nodes;
+			m_nodes = NULL;
+		}
+		region_list.clear();
+		m_size = m_width = m_height = 0;
+		m_propagated = false;
 	}
 
 	void Create(const ColorContainer &in, LabelContainer &labels, int num_segments, int start_label);

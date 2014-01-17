@@ -171,7 +171,7 @@ public:
 			//io::savePLYFileASCII<PointXYZRGBA>("test3.ply",*segment);
 			//pcl::io::savePCDFile("output.pcd",*segment);
 			//viewer1->showCloud(data->cloud.makeShared());
-			//viewer.showCloud(segment);
+			viewer.showCloud(segment);
 			//copyPointCloud(data->cloud,*sharedCloud);
 			normalMutex.unlock();
 		}

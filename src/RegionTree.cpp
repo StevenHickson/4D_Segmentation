@@ -236,7 +236,7 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int nu
 	numRegions = 0;
 	totRegions = (num_segments + 2) << 1 + 1;
 	region_list.resize(totRegions);
-	float bad_point = std::numeric_limits<float>::quiet_NaN ();
+	//float bad_point = std::numeric_limits<float>::quiet_NaN ();
 	for(j = 0; j < in.height; j++) {
 		for(i = 0; i < in.width; i++) {
 			//if(!_isnan(pIn->z)) {
@@ -252,8 +252,9 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int nu
 					if(numRegions >= totRegions) {
 						printf("Vector out of range\n");
 					}
-					region_list[numRegions].InitializeRegion(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r), current + start_label, i, j, 1);
-					pRegion = &(region_list[numRegions]);
+					region_list[numRegions] = new Region3D();
+					region_list[numRegions]->InitializeRegion(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r), current + start_label, i, j, 1);
+					pRegion = region_list[numRegions];
 					if(current >= totRegions) {
 						printf("Vector out of range\n");
 					}
@@ -265,7 +266,7 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int nu
 			pIn++; pLabel++;
 		}
 	}
-	region_list.shrink_to_fit();
+	//region_list.shrink_to_fit();
 	region_list.resize(numRegions);
 	pIn = in.begin();
 	pLabel = labels.begin();
@@ -276,26 +277,26 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int nu
 				//I'm not new, add me appropriately
 				//Add node to appropriately region list
 				loc = lookup[int(pLabel->intensity)];
-				pRegion = &(region_list[loc]);
+				pRegion = region_list[loc];
 				assert(pRegion != NULL);
-				region_list[loc].AddNode(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r),i,j);
+				region_list[loc]->AddNode(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r),i,j);
 				//Check for neighbors
 				if(i < safeWidth) {
 					label = lookup[int((pLabel + 1)->intensity)];
-					tmp = &(region_list[label]);
+					tmp = region_list[label];
 					assert(tmp != NULL);
 					if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
 						pRegion->m_neighbors.push_back(label);
 					if(j < safeHeight) {
 						label = lookup[int((pLabel + in.width + 1)->intensity)];
-						tmp = &(region_list[label]);
+						tmp = region_list[label];
 						assert(tmp != NULL);
 						if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
 							pRegion->m_neighbors.push_back(label);
 					}
 					if(j > 0) {
 						label = lookup[int((pLabel - in.width + 1)->intensity)];
-						tmp = &(region_list[label]);
+						tmp = region_list[label];
 						assert(tmp != NULL);
 						if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
 							pRegion->m_neighbors.push_back(label);
@@ -303,7 +304,7 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int nu
 				}
 				if(j < safeHeight) {
 					label = lookup[int((pLabel + in.width)->intensity)];
-					tmp = &(region_list[label]);
+					tmp = region_list[label];
 					assert(tmp != NULL);
 					if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
 						pRegion->m_neighbors.push_back(label);
@@ -387,7 +388,7 @@ void RegionTree3D::TemporalCorrection(RegionTree3D &past, int level) {
 		map<Region3D,Region3D> currSeg, pastSeg;
 		//Match based on the centroid of each region
 		//Region3D **pCurr = m_nodes, **pPast;
-		vector<Region3D>::iterator pCurr = region_list.begin(), pPast;
+		vector<Region3D*>::iterator pCurr = region_list.begin(), pPast;
 		//FILE *fp;
 		//fopen_s(&fp,"C:\\Users\\Steve\\Documents\\Data\\stats.txt","a");
 		for(int i = 0; i < m_size; i++) {
@@ -396,54 +397,54 @@ void RegionTree3D::TemporalCorrection(RegionTree3D &past, int level) {
 			float min;
 			float hist_diff;
 			int size_diff;
-			min = fabsf((pCurr)->m_centroid3D.x - (pPast)->m_centroid3D.x) + fabsf((pCurr)->m_centroid3D.y - (pPast)->m_centroid3D.y) + fabsf((pCurr)->m_centroid3D.z - (pPast)->m_centroid3D.z);
-			hist_diff = HistDifference(*pCurr,*pPast);
+			min = fabsf((*pCurr)->m_centroid3D.x - (*pPast)->m_centroid3D.x) + fabsf((*pCurr)->m_centroid3D.y - (*pPast)->m_centroid3D.y) + fabsf((*pCurr)->m_centroid3D.z - (*pPast)->m_centroid3D.z);
+			hist_diff = HistDifference(**pCurr,**pPast);
 			Region3D minLoc;
-			minLoc = *pPast;
+			minLoc = **pPast;
 			pPast++;
 			for(int j = 0; j < past.m_size - 1; j++) {
-				float val = HistDifference(*pCurr,*pPast);
+				float val = HistDifference(**pCurr,**pPast);
 				if(val < hist_diff) {
 					hist_diff = val;
-					minLoc = *pPast;
+					minLoc = **pPast;
 				}
 				pPast++;
 			}
-			currSeg[*pCurr] = minLoc;
+			currSeg[**pCurr] = minLoc;
 			pCurr++;
 		}
 		pPast = past.region_list.begin();
 		for(int i = 0; i < past.m_size; i++) {
 			//find the best match
 			pCurr = region_list.begin();
-			float hist_diff = HistDifference(*pCurr,*pPast);
+			float hist_diff = HistDifference(**pCurr,**pPast);
 			Region3D minLoc;
-			minLoc = *pCurr;
+			minLoc = **pCurr;
 			pCurr++;
 			//find the 3 with the closest centroids
 			for(int j = 0; j < m_size - 1; j++) {
-				float val = HistDifference(*pCurr,*pPast);
+				float val = HistDifference(**pCurr,**pPast);
 				if(val < hist_diff) {
 					hist_diff = val;
-					minLoc = *pCurr;
+					minLoc = **pCurr;
 				}
 				pCurr++;
 			}
 			//fprintf(fp,"%f, %d, %d, %f, %d, %d, %f, %f, %f, %d, %d, %f, %f, %f\n",hist_diff[0], pCurr->m_size, size_diff[0], min[0], int(pCurr->m_centroid.x), int(pCurr->m_centroid.y), pCurr->m_centroid3D.x, pCurr->m_centroid3D.y, pCurr->m_centroid3D.z, int(minLoc[0].m_centroid.x), int(minLoc[0].m_centroid.y), minLoc[0].m_centroid3D.x, minLoc[0].m_centroid3D.y, minLoc[0].m_centroid3D.z);
-			pastSeg[*pPast] = minLoc;
+			pastSeg[**pPast] = minLoc;
 			pPast++;
 		}
 
 		pCurr = region_list.begin();
 		for(int i = 0; i < m_size; i++) {
 			//bipartite matching with red-black trees
-			if(pCurr->m_centroid3D.intensity == pastSeg[currSeg[*pCurr]].m_centroid3D.intensity) {
+			if((*pCurr)->m_centroid3D.intensity == pastSeg[currSeg[**pCurr]].m_centroid3D.intensity) {
 				//the min should be normalized by the size somehow
 				//float min = (absf((pCurr)->m_centroid3D.x - currSeg[*pCurr].m_centroid3D.x) + absf((pCurr)->m_centroid3D.y -currSeg[*pCurr].m_centroid3D.y) + absf((pCurr)->m_centroid3D.z - currSeg[*pCurr].m_centroid3D.z)) / pCurr->m_size;
 				//int size_diff = absf(int((pCurr)->m_size) - int(currSeg[*pCurr].m_size));
 				//float hist_diff = HistDifference(*pCurr,currSeg[*pCurr]);
 				//if(hist_diff <= MIN_REGION_HIST && ((pCurr)->m_size < MAX_CONVERGING_SIZE || (size_diff <= (pCurr)->m_size * MIN_REGION_SIZE && min < MIN_REGION_DIST)))
-				SetBranch(&(*pCurr),(pCurr)->m_level,currSeg[*pCurr].m_centroid3D.intensity);
+				SetBranch(*pCurr,(*pCurr)->m_level,currSeg[**pCurr].m_centroid3D.intensity);
 			}
 			++pCurr;
 		}
@@ -451,12 +452,12 @@ void RegionTree3D::TemporalCorrection(RegionTree3D &past, int level) {
 	} 
 }
 
-void UpdateTable(Region3D* child1, Region3D* child2, Region3D* father, vector<Region3D> &lookup) {
+void UpdateTable(Region3D* child1, Region3D* child2, Region3D* father, vector<Region3D*> &lookup) {
 	//for every value in the table, if it is = to child1 or = to child2, set it = to father
-	vector<Region3D>::iterator p = lookup.begin();
+	vector<Region3D*>::iterator p = lookup.begin();
 	while(p != lookup.end()) {
-		if(&(*p) == child1 || &(*p) == child2)
-			*p = *father;
+		if(*p == child1 || *p == child2)
+			*p = father;
 		p++;
 	}
 }
@@ -466,10 +467,10 @@ void RegionTree3D::PropagateRegionHierarchy(int min_size) {
 	//lets start by making a handy label lookup table
 	//find max label
 
-	vector<Region3D>::iterator p = region_list.begin();
+	vector<Region3D*>::iterator p = region_list.begin();
 	int num_edges = 0;
 	while(p != region_list.end()) {
-		num_edges += p->m_neighbors.size();
+		num_edges += (*p)->m_neighbors.size();
 		p++;
 	}
 	int i = 0;
@@ -479,7 +480,7 @@ void RegionTree3D::PropagateRegionHierarchy(int min_size) {
 	p = region_list.begin();
 	Edge *pEdge = edges, *edgesEnd = edges + num_edges;
 	while(p != region_list.end()) {
-		vector<int>::const_iterator pNeighbors = p->m_neighbors.begin(), pNeighborEnd = p->m_neighbors.end();
+		vector<int>::const_iterator pNeighbors = (*p)->m_neighbors.begin(), pNeighborEnd = (*p)->m_neighbors.end();
 		while(pNeighbors != pNeighborEnd) {
 			//if(lookup[*pNeighbors] != NULL) {
 			pEdge->a = i;
@@ -487,7 +488,7 @@ void RegionTree3D::PropagateRegionHierarchy(int min_size) {
 			//pEdge->w = (float)HistDifference(**p,*(lookup[*pNeighbors]));// (float)(*p)->m_size;
 			//pEdge->w = (float)HistDifference(**p,*(*p)->m_neighbor_map[*pNeighbors]);// (float)(*p)->m_size;
 			//assert(region_list[*pNeighbors] != NULL);
-			pEdge->w = (float)HistDifference(*p,region_list[*pNeighbors]);
+			pEdge->w = (float)HistDifference(**p,*(region_list[*pNeighbors]));
 			pEdge++;
 			//}
 			pNeighbors++;
@@ -506,15 +507,15 @@ void RegionTree3D::PropagateRegionHierarchy(int min_size) {
 	i=0;
 	int current = 0;
 	while(pEdge != edgesEnd) {			
-		Region3D reg1 = region_list[pEdge->a], reg2 = region_list[pEdge->b];
-		if(reg1.m_centroid3D.intensity != reg2.m_centroid3D.intensity) {
+		Region3D *reg1 = region_list[pEdge->a], *reg2 = region_list[pEdge->b];
+		if(reg1->m_centroid3D.intensity != reg2->m_centroid3D.intensity) {
 			Region3D *father = new Region3D();
-			father->InitializeRegion(&reg1,&reg2,current,min_size);
+			father->InitializeRegion(reg1,reg2,current,min_size);
 			//Instead of this, I should go through the whole table looking up the old pointer values and replace them with the new pointer values
-			UpdateTable(&reg1,&reg2,father,region_list);
+			UpdateTable(reg1,reg2,father,region_list);
 			//this is just in case, I probably don't need to do this
-			region_list[pEdge->a] = *father;
-			region_list[pEdge->b] = *father;
+			region_list[pEdge->a] = father;
+			region_list[pEdge->b] = father;
 		}
 		pEdge++;
 		i++;
@@ -523,11 +524,11 @@ void RegionTree3D::PropagateRegionHierarchy(int min_size) {
 	}
 	//printf("Graph joined, went through %d Edges\n",i);
 	//If everything goes well, there should be only one region left.
-	delete m_nodes;
+	delete[] m_nodes;
 	m_size = 1;
 	m_nodes = new Region3D*[1]();
 	pEdge--;
-	m_nodes[0] = &region_list[pEdge->a];
+	m_nodes[0] = region_list[pEdge->a];
 	m_propagated = true;
 	//delete lookup; //somehow I must have already deleted this?
 	delete edges;
