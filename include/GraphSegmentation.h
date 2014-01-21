@@ -89,5 +89,13 @@ public:
 	int num;
 };
 
+int SegmentNormals(const pcl::PointCloud<pcl::PointXYZRGBA> &cloud, 
+	const pcl::PointCloud<pcl::PointNormal>::ConstPtr &in, 
+	float sigma, 
+	float c, 
+	int min_size,
+	pcl::PointCloud<pcl::PointXYZI>::Ptr &out,
+	pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &out_color);
+
 
 #endif //GRAPH_SEGMENTATION_H
