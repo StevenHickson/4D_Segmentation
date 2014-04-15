@@ -229,9 +229,6 @@ void iBuildGraphNormals(const PointCloud<PointNormal> &in,
 	iSmooth(Y, sigma, smooth_y);
 	iSmooth(Z, sigma, smooth_z);
 
-	//Normalize
-	//PointCloud<Bgr> norm;
-	//Normalize(in,&norm);
 
 	Edge *p = edges;
 	Mat_<float>::const_iterator pX = smooth_x.begin<float>(), pY = smooth_y.begin<float>(), pZ = smooth_z.begin<float>();
@@ -286,13 +283,113 @@ void iBuildGraphNormals(const PointCloud<PointNormal> &in,
 			//++pC;
 		}
 	}
-	/*X.release();
+	X.release();
 	Y.release();
 	Z.release();
 	smooth_x.release();
 	smooth_y.release();
-	smooth_z.release();*/
-	
+	smooth_z.release();
+
+	*num_edges = num;
+}
+
+void iBuildGraphColorAndNormals(const PointCloud<PointXYZRGBA> &color,
+								const PointCloud<PointNormal> &normal,
+								float sigma_normal,
+								float sigma_color, 
+								Edge *&edges,
+								int *num_edges)
+{
+	int width = color.width;
+	int height = color.height;
+	int num = 0;
+	int x, y, xp, ym, yp;
+	int safeWidth = width - 1, safeHeight = height - 1;
+	int reserve_size = color.size()*8;
+	//printf("Reserve size = %d\n",reserve_size);
+	edges = (Edge*) malloc(reserve_size*sizeof(Edge));
+	if(edges == NULL) {
+		printf("Error, could not malloc\n");
+		return;
+	}
+	Mat X,Y,Z, smooth_x, smooth_y, smooth_z;
+	iExtractNormals(normal, X, Y, Z);
+	iSmooth(X, sigma_normal, smooth_x);
+	iSmooth(Y, sigma_normal, smooth_y);
+	iSmooth(Z, sigma_normal, smooth_z);
+
+	Mat R,G,B,D, smooth_r, smooth_g, smooth_b;
+	iExtractRGBDColorSpace(color, B, G, R, D);
+	iSmooth(B, sigma_color, smooth_b);
+	iSmooth(G, sigma_color, smooth_g);
+	iSmooth(R, sigma_color, smooth_r);
+
+	Edge *p = edges;
+	Mat_<float>::const_iterator pX = smooth_x.begin<float>(), pY = smooth_y.begin<float>(), pZ = smooth_z.begin<float>();
+	Mat_<float>::const_iterator pXBegin = pX, pYBegin = pY, pZBegin = pZ;
+	Mat_<float>::const_iterator pR = smooth_r.begin<float>(), pG = smooth_g.begin<float>(), pB = smooth_b.begin<float>();
+	Mat_<float>::const_iterator pRBegin = pR, pGBegin = pG, pBBegin = pB;
+	for ( y = 0, ym = -1, yp = 1; y < height; y++, ym++, yp++)
+	{
+		for ( x = 0, xp = 1; x < width; x++, xp++)
+		{
+			//cout << x << ", " << y << endl;
+			if (x < safeWidth)
+			{
+				Edge edge;
+				edge.a = y * width + x;
+				edge.b = y * width + xp;
+				edge.w =  max(sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b))),sqrtf(square(*pX - *(pXBegin + edge.b))+square(*pY - *(pYBegin + edge.b))+square(*pZ - *(pZBegin + edge.b))));
+				//edge.valid = true;
+				*p++ = edge;
+				num++;
+			}
+			if (y < safeHeight)
+			{
+				Edge edge;
+				edge.a = y * width + x;
+				edge.b = yp * width + x;
+				edge.w =  max(sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b))),sqrtf(square(*pX - *(pXBegin + edge.b))+square(*pY - *(pYBegin + edge.b))+square(*pZ - *(pZBegin + edge.b))));
+				//edge.valid = true;
+				*p++ = edge;
+				num++;
+			}
+			if ((x < safeWidth) && (y < safeHeight)) 
+			{
+				Edge edge;
+				edge.a = y * width + x;
+				edge.b = yp * width + xp;
+				edge.w =  max(sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b))),sqrtf(square(*pX - *(pXBegin + edge.b))+square(*pY - *(pYBegin + edge.b))+square(*pZ - *(pZBegin + edge.b))));
+				//edge.valid = true;
+				*p++ = edge;
+				num++;
+			}
+			if ((x < safeWidth) && (y > 0))
+			{
+				Edge edge;
+				edge.a  = y * width + x;
+				edge.b  = ym * width + xp;
+				edge.w =  max(sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b))),sqrtf(square(*pX - *(pXBegin + edge.b))+square(*pY - *(pYBegin + edge.b))+square(*pZ - *(pZBegin + edge.b))));
+				//edge.valid = true;
+				*p++ = edge;
+				num++;
+			}
+			++pX; ++pY; ++pZ; pR++; pG++; pB++;
+		}
+	}
+	X.release();
+	Y.release();
+	Z.release();
+	smooth_x.release();
+	smooth_y.release();
+	smooth_z.release();
+	R.release();
+	G.release();
+	B.release();
+	D.release();
+	smooth_b.release();
+	smooth_g.release();
+	smooth_r.release();
 	*num_edges = num;
 }
 
@@ -504,6 +601,83 @@ void random_rgb(Vec3b &c)
 	c[2] = rand() % 255 + 1;
 }
 
+int SHGraphSegment(
+	PointCloudBgr &in, 
+	float sigma_depth, 
+	float c_depth, 
+	int depth_min_size,
+	float sigma_color,
+	float c_color, 
+	int color_min_size,
+	PointCloudInt *out,
+	PointCloudBgr *out_color) 
+{
+
+	int i, size = in.size();
+	Universe u(size), u2(size);
+	Edge3D* edges = NULL;
+	int num_edges;
+
+	iBuildGraph(in, sigma_depth, sigma_color, edges, &num_edges);
+	if(edges == NULL || num_edges == 0) {
+		printf("Error, graph has no edges\n");
+		return 0;
+	}
+	iSegment_graph(size, num_edges, edges, c_depth, &u);
+	iJoin_graph(edges,num_edges,depth_min_size, &u);
+	iSegmentStep2_graph(size,num_edges,edges,c_color,u,&u2);
+	iJoin_graph(edges,num_edges,color_min_size,&u2);
+
+	free(edges);
+
+	Vec3b *m_colors = (Vec3b *) malloc(size*sizeof(Vec3b));
+	Vec3b *pColor = m_colors;
+	for (i = 0; i < size; i++)
+	{
+		Vec3b color;
+		random_rgb(color);
+		*pColor++ = color;
+	}
+
+	out->height = in.height;
+	out->width = in.width;
+	out->is_dense = false;
+	out->points.resize (out->height * out->width);
+	out_color->height = in.height;
+	out_color->width = in.width;
+	out_color->is_dense = false;
+	out_color->points.resize (out->height * out->width);
+	PointCloud<PointXYZI>::iterator pO = out->begin();
+	PointCloudBgr::const_iterator pI = in.begin();
+	i = 0;
+	while(pI != in.end()) {
+		int segment = u2.find(i);
+		pO->x = pI->x;
+		pO->y = pI->y;
+		pO->z = pI->z;
+		pO->intensity = segment;
+		++pI; ++pO; ++i;
+	}
+	//prevTree.Create(*in,*out,prevU_C.num_sets(),0);
+	PointCloudBgr::iterator pPseudo = out_color->begin();
+	pO = out->begin();
+	while(pO != out->end()) {
+		pPseudo->x = pO->x;
+		pPseudo->y = pO->y;
+		pPseudo->z = pO->z;
+		Vec3b tmp = m_colors[int(pO->intensity)];
+		pPseudo->r = tmp[2];
+		pPseudo->g = tmp[1];
+		pPseudo->b = tmp[0];
+		pPseudo->a = 255;
+		++pO; ++pPseudo;
+	}
+	free(m_colors);
+	u.elts.clear();
+	u2.elts.clear();
+	return u2.num_sets();
+}
+
 int Segment3D::Initialize(
 	const PointCloudBgr &in, 
 	float sigma_depth, 
@@ -627,9 +801,9 @@ int Segment3D::AddSlice(
 			pO->intensity = segment;
 			++pI; ++pO; ++i;
 		}
-		currTree.Create(in,*out,currU_C.num_sets(),m_maxLabel);
-		currTree.PropagateRegionHierarchy(75);
-		currTree.ImplementSegmentation(TREE_LEVEL);
+		//currTree.Create(in,*out,currU_C.num_sets(),m_maxLabel);
+		//currTree.PropagateRegionHierarchy(75);
+		//currTree.ImplementSegmentation(TREE_LEVEL);
 		m_maxLabel += currU_C.num_sets();
 		m_count++;
 		/*Merge();
@@ -658,68 +832,136 @@ void Segment3D::Merge() {
 }
 
 int SegmentNormals(const PointCloudBgr &cloud, 
-	const PointCloud<PointNormal>::ConstPtr &in, 
-	float sigma, 
-	float c, 
-	int min_size,
-	PointCloud<PointXYZI>::Ptr &out,
-	PointCloudBgr::Ptr &out_color) {
-		int i, size = in->size();
-		Universe currU = Universe(size);
-		Edge *currE = NULL;
-		int num_edges;
-		iBuildGraphNormals(*in,sigma,currE,&num_edges);
-		if(currE == NULL || num_edges == 0) {
-			printf("Error, graph has no edges\n");
-			return 0;
-		}
-		iSegment_graph(size, num_edges, currE, c, &currU);
-		iJoin_graph(currE,num_edges,min_size,&currU);
-		free(currE);
+				   const PointCloud<PointNormal>::ConstPtr &in, 
+				   float sigma, 
+				   float c, 
+				   int min_size,
+				   PointCloud<PointXYZI>::Ptr &out,
+				   PointCloudBgr::Ptr &out_color) {
+					   int i, size = in->size();
+					   Universe currU = Universe(size);
+					   Edge *currE = NULL;
+					   int num_edges;
+					   iBuildGraphNormals(*in,sigma,currE,&num_edges);
+					   if(currE == NULL || num_edges == 0) {
+						   printf("Error, graph has no edges\n");
+						   return 0;
+					   }
+					   iSegment_graph(size, num_edges, currE, c, &currU);
+					   iJoin_graph(currE,num_edges,min_size,&currU);
+					   free(currE);
 
-		Vec3b *m_colors = (Vec3b *) malloc(size*sizeof(Vec3b));
-		Vec3b *pColor = m_colors;
-		for (i = 0; i < size; i++)
-		{
-			Vec3b color;
-			random_rgb(color);
-			*pColor++ = color;
-		}
+					   Vec3b *m_colors = (Vec3b *) malloc(size*sizeof(Vec3b));
+					   Vec3b *pColor = m_colors;
+					   for (i = 0; i < size; i++)
+					   {
+						   Vec3b color;
+						   random_rgb(color);
+						   *pColor++ = color;
+					   }
 
-		out->height = in->height;
-		out->width = in->width;
-		out->is_dense = false;
-		out->points.resize (out->height * out->width);
-		out_color->height = in->height;
-		out_color->width = in->width;
-		out_color->is_dense = false;
-		out_color->points.resize (out->height * out->width);
-		PointCloud<PointXYZI>::iterator pO = out->begin();
-		//PointCloud<PointNormal>::const_iterator pI = in->begin();
-		PointCloud<PointXYZRGBA>::const_iterator pC = cloud.begin();
-		i = 0;
-		while(pC != cloud.end()) {
-			int segment = currU.find(i);
-			pO->x = pC->x;
-			pO->y = pC->y;
-			pO->z = pC->z;
-			pO->intensity = segment;
-			++pO; ++pC; ++i;
-		}
-		
-		PointCloudBgr::iterator pPseudo = out_color->begin();
-		pO = out->begin();
-		while(pO != out->end()) {
-			pPseudo->x = pO->x;
-			pPseudo->y = pO->y;
-			pPseudo->z = pO->z;
-			Vec3b tmp = m_colors[int(pO->intensity)];
-			pPseudo->r = tmp[2];
-			pPseudo->g = tmp[1];
-			pPseudo->b = tmp[0];
-			pPseudo->a = 255;
-			++pO; ++pPseudo;
-		}
-		free(m_colors);
-		return currU.num_sets();
+					   out->height = in->height;
+					   out->width = in->width;
+					   out->is_dense = false;
+					   out->points.resize (out->height * out->width);
+					   out_color->height = in->height;
+					   out_color->width = in->width;
+					   out_color->is_dense = false;
+					   out_color->points.resize (out->height * out->width);
+					   PointCloud<PointXYZI>::iterator pO = out->begin();
+					   //PointCloud<PointNormal>::const_iterator pI = in->begin();
+					   PointCloud<PointXYZRGBA>::const_iterator pC = cloud.begin();
+					   i = 0;
+					   while(pC != cloud.end()) {
+						   int segment = currU.find(i);
+						   pO->x = pC->x;
+						   pO->y = pC->y;
+						   pO->z = pC->z;
+						   pO->intensity = segment;
+						   ++pO; ++pC; ++i;
+					   }
+
+					   PointCloudBgr::iterator pPseudo = out_color->begin();
+					   pO = out->begin();
+					   while(pO != out->end()) {
+						   pPseudo->x = pO->x;
+						   pPseudo->y = pO->y;
+						   pPseudo->z = pO->z;
+						   Vec3b tmp = m_colors[int(pO->intensity)];
+						   pPseudo->r = tmp[2];
+						   pPseudo->g = tmp[1];
+						   pPseudo->b = tmp[0];
+						   pPseudo->a = 255;
+						   ++pO; ++pPseudo;
+					   }
+					   free(m_colors);
+					   return currU.num_sets();
+}
+
+int SegmentColorAndNormals(const pcl::PointCloud<pcl::PointXYZRGBA> &cloud, 
+						   const pcl::PointCloud<pcl::PointNormal>::ConstPtr &in, 
+						   float sigma_normal, 
+						   float sigma_color,
+						   float c, 
+						   int min_size,
+						   pcl::PointCloud<pcl::PointXYZI>::Ptr &out,
+						   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &out_color) {
+							   int i, size = in->size();
+							   Universe currU = Universe(size);
+							   Edge *currE = NULL;
+							   int num_edges;
+							   iBuildGraphColorAndNormals(cloud,*in,sigma_normal,sigma_color,currE,&num_edges);
+							   if(currE == NULL || num_edges == 0) {
+								   printf("Error, graph has no edges\n");
+								   return 0;
+							   }
+							   iSegment_graph(size, num_edges, currE, c, &currU);
+							   iJoin_graph(currE,num_edges,min_size,&currU);
+							   free(currE);
+
+							   Vec3b *m_colors = (Vec3b *) malloc(size*sizeof(Vec3b));
+							   Vec3b *pColor = m_colors;
+							   for (i = 0; i < size; i++)
+							   {
+								   Vec3b color;
+								   random_rgb(color);
+								   *pColor++ = color;
+							   }
+
+							   out->height = in->height;
+							   out->width = in->width;
+							   out->is_dense = false;
+							   out->points.resize (out->height * out->width);
+							   out_color->height = in->height;
+							   out_color->width = in->width;
+							   out_color->is_dense = false;
+							   out_color->points.resize (out->height * out->width);
+							   PointCloud<PointXYZI>::iterator pO = out->begin();
+							   //PointCloud<PointNormal>::const_iterator pI = in->begin();
+							   PointCloud<PointXYZRGBA>::const_iterator pC = cloud.begin();
+							   i = 0;
+							   while(pC != cloud.end()) {
+								   int segment = currU.find(i);
+								   pO->x = pC->x;
+								   pO->y = pC->y;
+								   pO->z = pC->z;
+								   pO->intensity = segment;
+								   ++pO; ++pC; ++i;
+							   }
+
+							   PointCloudBgr::iterator pPseudo = out_color->begin();
+							   pO = out->begin();
+							   while(pO != out->end()) {
+								   pPseudo->x = pO->x;
+								   pPseudo->y = pO->y;
+								   pPseudo->z = pO->z;
+								   Vec3b tmp = m_colors[int(pO->intensity)];
+								   pPseudo->r = tmp[2];
+								   pPseudo->g = tmp[1];
+								   pPseudo->b = tmp[0];
+								   pPseudo->a = 255;
+								   ++pO; ++pPseudo;
+							   }
+							   free(m_colors);
+							   return currU.num_sets();
 }

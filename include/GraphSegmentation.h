@@ -97,5 +97,24 @@ int SegmentNormals(const pcl::PointCloud<pcl::PointXYZRGBA> &cloud,
 	pcl::PointCloud<pcl::PointXYZI>::Ptr &out,
 	pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &out_color);
 
+int SegmentColorAndNormals(const pcl::PointCloud<pcl::PointXYZRGBA> &cloud, 
+	const pcl::PointCloud<pcl::PointNormal>::ConstPtr &in, 
+	float sigma_normal, 
+	float sigma_color,
+	float c, 
+	int min_size,
+	pcl::PointCloud<pcl::PointXYZI>::Ptr &out,
+	pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &out_color);
+
+int SHGraphSegment(
+	pcl::PointCloud<pcl::PointXYZRGBA> &in, 
+	float sigma_depth, 
+	float c_depth, 
+	int depth_min_size,
+	float sigma_color,
+	float c_color, 
+	int color_min_size,
+	pcl::PointCloud<pcl::PointXYZI> *out,
+	pcl::PointCloud<pcl::PointXYZRGBA> *out_color);
 
 #endif //GRAPH_SEGMENTATION_H

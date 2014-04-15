@@ -52,6 +52,7 @@ inline int Round (float a)
 
 typedef pcl::PointCloud<pcl::PointXYZRGBA> PointCloudBgr;
 typedef pcl::PointCloud<pcl::PointXYZI> PointCloudInt;
+typedef pcl::PointCloud<pcl::PointNormal> PointCloudNormal;
 
 void ComputeOpticalFlow(const cv::Mat &past, const cv::Mat &current, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &pastCloud, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &currCloud, pcl::PointCloud<pcl::Normal>::Ptr &flow);
 void ComputeOpticalFlowGPU(const cv::Mat &past, const cv::Mat &current, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &pastCloud, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &currCloud, pcl::PointCloud<pcl::Normal>::Ptr &flow);

@@ -89,9 +89,9 @@ LABXYZUVW::LABXYZUVW(int r_val, int g_val, int b_val, float x_val, float y_val, 
 	l = lab.l;
 	a = lab.a;
 	b = lab.b;
-	u = u_val + 0.2f;  //Need to shift these as well
-	v = v_val + 0.2f;
-	w = w_val + 6.2f;  //not sure about these numbers
+	u = u_val + 1.0f;  //Need to shift these as well
+	v = v_val + 1.0f;
+	w = w_val + 1.0f;  //not sure about these numbers
 	x = x_val + 3.0f; //to shift to all positive values
 	y = y_val + 2.0f; //for the histogram
 	z = z_val; //should minimize this one later to specify values that are within a small time range
@@ -107,28 +107,35 @@ LABXYZ::LABXYZ(int r_val, int g_val, int b_val, float x_val, float y_val, float 
 	z = z_val;
 }
 
-inline void Region3D::InitializeRegion(PointXYZI *in, Vec3b &color, const int label, const int i, const int j, const int level) {
+
+inline void Region3D::InitializeRegion(PointXYZI *in, Vec3b &color, const pcl::PointNormal &normal, const int label, const int i, const int j, const int level) {
 	//if(!_isnan(in->z)) {
-		m_level  = level;
-		m_size = 1;
-		m_hist = new LABXYZ[NUM_BINS_XYZ]();
-		LABXYZ labxyz = LABXYZ(color[2],color[1],color[0],in->x, in->y, in->z);
-		m_hist[Clamp(Round(labxyz.l * HIST_MUL_L),0,NUM_BINS)].l++;
-		m_hist[Clamp(Round(labxyz.a * HIST_MUL_A),0,NUM_BINS)].a++;
-		m_hist[Clamp(Round(labxyz.b * HIST_MUL_B),0,NUM_BINS)].b++;
-		m_hist[Clamp(Round(labxyz.x * HIST_MUL_X),0,NUM_BINS_XYZ)].x++;
-		m_hist[Clamp(Round(labxyz.y * HIST_MUL_Y),0,NUM_BINS_XYZ)].y++;
-		m_hist[Clamp(Round(labxyz.z * HIST_MUL_Z),0,NUM_BINS_XYZ)].z++;
-		m_centroid = Point(i,j);
-		m_centroid3D.x = in->x;
-		m_centroid3D.y = in->y;
-		m_centroid3D.z = in->z;
-		m_centroid3D.intensity = label;
-		m_nodes.reserve(76800);
-		m_neighbors.reserve(8);
-		m_nodes.push_back(in);
-		m_regions[0] = m_regions[1] = NULL;
-		m_numRegions = 0;
+	m_level  = level;
+	m_size = 1;
+	m_hist = new LABXYZUVW[NUM_BINS_XYZ]();
+	LABXYZUVW labxyz = LABXYZUVW(color[2],color[1],color[0],in->x, in->y, in->z,normal.normal_x,normal.normal_y,normal.normal_z);
+	m_hist[Clamp(Round(labxyz.l * HIST_MUL_L),0,NUM_BINS)].l++;
+	m_hist[Clamp(Round(labxyz.a * HIST_MUL_A),0,NUM_BINS)].a++;
+	m_hist[Clamp(Round(labxyz.b * HIST_MUL_B),0,NUM_BINS)].b++;
+	m_hist[Clamp(Round(labxyz.x * HIST_MUL_X),0,NUM_BINS_XYZ)].x++;
+	m_hist[Clamp(Round(labxyz.y * HIST_MUL_Y),0,NUM_BINS_XYZ)].y++;
+	m_hist[Clamp(Round(labxyz.z * HIST_MUL_Z),0,NUM_BINS_XYZ)].z++;
+	if(!_isnan(labxyz.u))
+		m_hist[Clamp(Round(labxyz.u * HIST_MUL_N),0,NUM_BINS)].u++;
+	if(!_isnan(labxyz.v))
+		m_hist[Clamp(Round(labxyz.v * HIST_MUL_N),0,NUM_BINS)].v++;
+	if(!_isnan(labxyz.w))
+		m_hist[Clamp(Round(labxyz.w * HIST_MUL_N),0,NUM_BINS)].w++;
+	m_centroid = Point(i,j);
+	m_centroid3D.x = m_min3D.x = m_max3D.x = in->x;
+	m_centroid3D.y = m_min3D.y = m_max3D.y = in->y;
+	m_centroid3D.z = m_min3D.z = m_max3D.z = in->z;
+	m_centroid3D.intensity = label;
+	m_nodes.reserve(76800);
+	m_neighbors.reserve(8);
+	m_nodes.push_back(in);
+	m_regions[0] = m_regions[1] = NULL;
+	m_numRegions = 0;
 	//}
 }
 
@@ -160,8 +167,8 @@ inline void Region3D::InitializeRegion(Region3D *node1, Region3D *node2, int lev
 	m_centroid3D.x = (node1->m_centroid3D.x * node1->m_size + node2->m_centroid3D.x * node2->m_size) / m_size;
 	m_centroid3D.y = (node1->m_centroid3D.y * node1->m_size + node2->m_centroid3D.y * node2->m_size) / m_size;
 	m_centroid3D.z = (node1->m_centroid3D.z * node1->m_size + node2->m_centroid3D.z * node2->m_size) / m_size;
-	m_hist = new LABXYZ[NUM_BINS_XYZ]();
-	LABXYZ *pHist = m_hist, *pHistFirstEnd = m_hist + NUM_BINS, *pHistEnd = m_hist + NUM_BINS_XYZ, *pHist1 = node1->m_hist, *pHist2 = node2->m_hist;
+	m_hist = new LABXYZUVW[NUM_BINS_XYZ]();
+	LABXYZUVW *pHist = m_hist, *pHistFirstEnd = m_hist + NUM_BINS, *pHistEnd = m_hist + NUM_BINS_XYZ, *pHist1 = node1->m_hist, *pHist2 = node2->m_hist;
 	while(pHist != pHistFirstEnd) {
 		pHist->l = pHist1->l + pHist2->l;
 		pHist->a = pHist1->a + pHist2->a;
@@ -169,6 +176,9 @@ inline void Region3D::InitializeRegion(Region3D *node1, Region3D *node2, int lev
 		pHist->x = pHist1->x + pHist2->x;
 		pHist->y = pHist1->y + pHist2->y;
 		pHist->z = pHist1->z + pHist2->z;
+		pHist->u = pHist1->u + pHist2->u;
+		pHist->v = pHist1->v + pHist2->v;
+		pHist->w = pHist1->w + pHist2->w;
 		pHist++; pHist1++; pHist2++;
 	}
 	while(pHist != pHistEnd) {
@@ -177,28 +187,60 @@ inline void Region3D::InitializeRegion(Region3D *node1, Region3D *node2, int lev
 		pHist->z = pHist1->z + pHist2->z;
 		pHist++; pHist1++; pHist2++;
 	}
+	m_min3D = node1->m_min3D;
+	m_max3D = node1->m_max3D;
+	if(m_min3D.x > node2->m_min3D.x)
+		m_min3D.x = node2->m_min3D.x;
+	if(m_min3D.y > node2->m_min3D.y)
+		m_min3D.y = node2->m_min3D.y;
+	if(m_min3D.z > node2->m_min3D.z)
+		m_min3D.z = node2->m_min3D.z;
+	if(m_max3D.x < node2->m_max3D.x)
+		m_max3D.x = node2->m_max3D.x;
+	if(m_max3D.y < node2->m_max3D.y)
+		m_max3D.y = node2->m_max3D.y;
+	if(m_max3D.z < node2->m_max3D.z)
+		m_max3D.z = node2->m_max3D.z;
 	//I might want to add the neighbors later but for now I don't think it matters
 	m_numRegions = 2;
 	m_regions[0] = node1;
 	m_regions[1] = node2;
 }
 
-inline void Region3D::AddNode(PointXYZI *in, Vec3b &color, const int i, const int j) {
+inline void Region3D::AddNode(PointXYZI *in, Vec3b &color, const pcl::PointNormal &normal, const int i, const int j) {
 	//if(!_isnan(in->z)) {
-		LABXYZ labxyz = LABXYZ(color[2],color[1],color[0],in->x,in->y,in->z);
-		m_hist[Clamp(Round(labxyz.l * HIST_MUL_L), 0, NUM_BINS)].l++;
-		m_hist[Clamp(Round(labxyz.a * HIST_MUL_A), 0, NUM_BINS)].a++;
-		m_hist[Clamp(Round(labxyz.b * HIST_MUL_B), 0, NUM_BINS)].b++;
-		m_hist[Clamp(Round(labxyz.x * HIST_MUL_X), 0, NUM_BINS_XYZ)].x++;
-		m_hist[Clamp(Round(labxyz.y * HIST_MUL_Y), 0, NUM_BINS_XYZ)].y++;
-		m_hist[Clamp(Round(labxyz.z * HIST_MUL_Z), 0, NUM_BINS_XYZ)].z++;
-		m_size++;
-		m_centroid.x += i;
-		m_centroid.y += j;
-		m_centroid3D.x += in->x;
-		m_centroid3D.y += in->y;
-		m_centroid3D.z += in->z;
-		m_nodes.push_back(in);
+	LABXYZUVW labxyz = LABXYZUVW(color[2],color[1],color[0],in->x,in->y,in->z,normal.normal_x,normal.normal_y,normal.normal_z);
+	m_hist[Clamp(Round(labxyz.l * HIST_MUL_L), 0, NUM_BINS)].l++;
+	m_hist[Clamp(Round(labxyz.a * HIST_MUL_A), 0, NUM_BINS)].a++;
+	m_hist[Clamp(Round(labxyz.b * HIST_MUL_B), 0, NUM_BINS)].b++;
+	m_hist[Clamp(Round(labxyz.x * HIST_MUL_X), 0, NUM_BINS_XYZ)].x++;
+	m_hist[Clamp(Round(labxyz.y * HIST_MUL_Y), 0, NUM_BINS_XYZ)].y++;
+	m_hist[Clamp(Round(labxyz.z * HIST_MUL_Z), 0, NUM_BINS_XYZ)].z++;
+	if(!_isnan(labxyz.u))
+		m_hist[Clamp(Round(labxyz.u * HIST_MUL_N),0,NUM_BINS)].u++;
+	if(!_isnan(labxyz.v))
+		m_hist[Clamp(Round(labxyz.v * HIST_MUL_N),0,NUM_BINS)].v++;
+	if(!_isnan(labxyz.w))
+		m_hist[Clamp(Round(labxyz.w * HIST_MUL_N),0,NUM_BINS)].w++;
+	m_size++;
+	m_centroid.x += i;
+	m_centroid.y += j;
+	m_centroid3D.x += in->x;
+	m_centroid3D.y += in->y;
+	m_centroid3D.z += in->z;
+	m_nodes.push_back(in);
+	if(m_min3D.x > in->x)
+		m_min3D.x = in->x;
+	if(m_min3D.y > in->y)
+		m_min3D.y = in->y;
+	if(m_min3D.z > in->z)
+		m_min3D.z = in->z;
+	if(m_max3D.x < in->x)
+		m_max3D.x = in->x;
+	if(m_max3D.y < in->y)
+		m_max3D.y = in->y;
+	if(m_max3D.z < in->z)
+		m_max3D.z = in->z;
 	//}
 }
 
@@ -214,7 +256,7 @@ inline void MinMax(const PointCloudInt &cloud, int *min, int *max) {
 	}
 }
 
-void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int num_segments, int start_label) {
+void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, const pcl::PointCloud<pcl::PointNormal> &normals, int num_segments, int start_label) {
 	this->Release();
 	*this = RegionTree3D(num_segments,in.width,in.height);
 	//the original region tree is only two levels, the original segments and then the voxels(leafs)
@@ -229,6 +271,7 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int nu
 		*pLook++ = -1;
 	PointCloudBgr::const_iterator pIn = in.begin();
 	PointCloudInt::iterator pLabel = labels.begin();
+	PointCloudNormal::const_iterator pNormal = normals.begin();
 	int loc, label, i, j;
 	const int safeWidth = in.width - 1, safeHeight = in.height - 1;
 	Region3D* pRegion = NULL;
@@ -240,77 +283,78 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int nu
 	for(j = 0; j < in.height; j++) {
 		for(i = 0; i < in.width; i++) {
 			//if(!_isnan(pIn->z)) {
-				//for each voxel, add to the appropriate region and compute important values
-				loc = lookup[int(pLabel->intensity)];
-				//Am I a new region?
-				if(loc == -1) {
-					//I'm a new region, initialize
-					if(pLabel->intensity>= max) {
-						printf("Vector out of range\n");
-					}
-					lookup[int(pLabel->intensity)] = current;
-					if(numRegions >= totRegions) {
-						printf("Vector out of range\n");
-					}
-					region_list[numRegions] = new Region3D();
-					region_list[numRegions]->InitializeRegion(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r), current + start_label, i, j, 1);
-					pRegion = region_list[numRegions];
-					if(current >= totRegions) {
-						printf("Vector out of range\n");
-					}
-					m_nodes[current] = pRegion;
-					numRegions++;
-					current++;
+			//for each voxel, add to the appropriate region and compute important values
+			loc = lookup[int(pLabel->intensity)];
+			//Am I a new region?
+			if(loc == -1) {
+				//I'm a new region, initialize
+				if(pLabel->intensity>= max) {
+					printf("Vector out of range\n");
 				}
+				lookup[int(pLabel->intensity)] = current;
+				if(numRegions >= totRegions) {
+					printf("Vector out of range\n");
+				}
+				region_list[numRegions] = new Region3D();
+				region_list[numRegions]->InitializeRegion(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r), *pNormal, current + start_label, i, j, 1);
+				pRegion = region_list[numRegions];
+				if(current >= totRegions) {
+					printf("Vector out of range\n");
+				}
+				m_nodes[current] = pRegion;
+				numRegions++;
+				current++;
+			}
 			//}
-			pIn++; pLabel++;
+			pIn++; pLabel++; pNormal++;
 		}
 	}
 	//region_list.shrink_to_fit();
 	region_list.resize(numRegions);
 	pIn = in.begin();
 	pLabel = labels.begin();
+	pNormal = normals.begin();
 	Region3D *tmp = NULL;
 	for(j = 0; j < in.height; j++) {
 		for(i = 0; i < in.width; i++) {
 			//if(!_isnan(pIn->z)) {
-				//I'm not new, add me appropriately
-				//Add node to appropriately region list
-				loc = lookup[int(pLabel->intensity)];
-				pRegion = region_list[loc];
-				assert(pRegion != NULL);
-				region_list[loc]->AddNode(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r),i,j);
-				//Check for neighbors
-				if(i < safeWidth) {
-					label = lookup[int((pLabel + 1)->intensity)];
-					tmp = region_list[label];
-					assert(tmp != NULL);
-					if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
-						pRegion->m_neighbors.push_back(label);
-					if(j < safeHeight) {
-						label = lookup[int((pLabel + in.width + 1)->intensity)];
-						tmp = region_list[label];
-						assert(tmp != NULL);
-						if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
-							pRegion->m_neighbors.push_back(label);
-					}
-					if(j > 0) {
-						label = lookup[int((pLabel - in.width + 1)->intensity)];
-						tmp = region_list[label];
-						assert(tmp != NULL);
-						if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
-							pRegion->m_neighbors.push_back(label);
-					}
-				}
+			//I'm not new, add me appropriately
+			//Add node to appropriately region list
+			loc = lookup[int(pLabel->intensity)];
+			pRegion = region_list[loc];
+			assert(pRegion != NULL);
+			region_list[loc]->AddNode(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r),*pNormal,i,j);
+			//Check for neighbors
+			if(i < safeWidth) {
+				label = lookup[int((pLabel + 1)->intensity)];
+				tmp = region_list[label];
+				assert(tmp != NULL);
+				if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
+					pRegion->m_neighbors.push_back(label);
 				if(j < safeHeight) {
-					label = lookup[int((pLabel + in.width)->intensity)];
+					label = lookup[int((pLabel + in.width + 1)->intensity)];
 					tmp = region_list[label];
 					assert(tmp != NULL);
 					if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
 						pRegion->m_neighbors.push_back(label);
 				}
+				if(j > 0) {
+					label = lookup[int((pLabel - in.width + 1)->intensity)];
+					tmp = region_list[label];
+					assert(tmp != NULL);
+					if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
+						pRegion->m_neighbors.push_back(label);
+				}
+			}
+			if(j < safeHeight) {
+				label = lookup[int((pLabel + in.width)->intensity)];
+				tmp = region_list[label];
+				assert(tmp != NULL);
+				if(pLabel->intensity != label && find(pRegion->m_neighbors.begin(),pRegion->m_neighbors.end(),label) == pRegion->m_neighbors.end() && find(tmp->m_neighbors.begin(),tmp->m_neighbors.end(),pLabel->intensity) == tmp->m_neighbors.end())
+					pRegion->m_neighbors.push_back(label);
+			}
 			//}
-			pIn++; pLabel++;
+			pIn++; pLabel++; pNormal++;
 		}
 	}
 	//adjust means and centroids and such
@@ -327,17 +371,18 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, int nu
 	delete[] lookup;
 }
 
-void SetBranch(Region3D* region, int level, int label) {
+void SetBranch(RegionTree3D *tree, Region3D* region, int level, int label) {
 	assert(region != NULL);
 	if(label == -1 && region->m_level <= level) {
 		//I should set the label
 		label = region->m_centroid3D.intensity;
+		tree->top_regions.push_back(region);
 	}
 	if(region->m_numRegions != 0 && region->m_regions != NULL && region->m_regions[0] != NULL && region->m_regions[1] != NULL) {
 		//I am not at the leaf level, tell my children to do proper
 		Region3D **branch = region->m_regions;
 		for(int i = 0; i < region->m_numRegions; i++) {
-			SetBranch(*branch,level, label);
+			SetBranch(tree, *branch,level, label);
 			branch++;
 		}
 	} else {
@@ -358,7 +403,7 @@ void RegionTree3D::UpdateCloud(int level) {
 	int i;
 	Region3D** branch = m_nodes;
 	for(i = 0; i < m_size; i++) {
-		SetBranch(*branch, level, -1);
+		SetBranch(this, *branch, level, -1);
 		branch++;
 	}
 }
@@ -367,10 +412,10 @@ void RegionTree3D::UpdateCloud(int level) {
 inline float HistDifference(Region3D &reg1, Region3D &reg2) {
 	if(reg1.m_hist != NULL && reg2.m_hist != NULL) {
 		float sad = 0.0f;
-		LABXYZ *p1 = reg1.m_hist, *p2 = reg2.m_hist;
+		LABXYZUVW *p1 = reg1.m_hist, *p2 = reg2.m_hist;
 		int i;
 		for(i = 0; i < NUM_BINS; i++, p1++, p2++) {
-			sad += fabsf(float(p1->a) / reg1.m_size - float(p2->a) / reg2.m_size) + fabsf(float(p1->b) / reg1.m_size - float(p2->b) / reg2.m_size) + fabsf(float(p1->l) / reg1.m_size - float(p2->l) / reg2.m_size) + HIST_DEPTH_MOD * (fabsf(float(p1->x) / reg1.m_size - float(p2->x) / reg2.m_size) + fabsf(float(p1->y) / reg1.m_size - float(p2->y) / reg2.m_size) + fabsf(float(p1->z) / reg1.m_size - float(p2->z) / reg2.m_size)); 
+			sad += HIST_COLOR_MOD * (fabsf(float(p1->a) / reg1.m_size - float(p2->a) / reg2.m_size) + fabsf(float(p1->b) / reg1.m_size - float(p2->b) / reg2.m_size) + fabsf(float(p1->l) / reg1.m_size - float(p2->l) / reg2.m_size)) + HIST_DEPTH_MOD * (fabsf(float(p1->x) / reg1.m_size - float(p2->x) / reg2.m_size) + fabsf(float(p1->y) / reg1.m_size - float(p2->y) / reg2.m_size) + fabsf(float(p1->z) / reg1.m_size - float(p2->z) / reg2.m_size)) + HIST_NORMAL_MOD * (fabsf(float(p1->u) / reg1.m_size - float(p2->u) / reg2.m_size) + fabsf(float(p1->v) / reg1.m_size - float(p2->v) / reg2.m_size) + fabsf(float(p1->w) / reg1.m_size - float(p2->w) / reg2.m_size)); 
 		}
 		while(i < NUM_BINS_XYZ) {
 			sad += HIST_DEPTH_MOD * (fabsf(float(p1->x) / reg1.m_size - float(p2->x) / reg2.m_size) + fabsf(float(p1->y) / reg1.m_size - float(p2->y) / reg2.m_size) + fabsf(float(p1->z) / reg1.m_size - float(p2->z) / reg2.m_size));
@@ -444,7 +489,7 @@ void RegionTree3D::TemporalCorrection(RegionTree3D &past, int level) {
 				//int size_diff = absf(int((pCurr)->m_size) - int(currSeg[*pCurr].m_size));
 				//float hist_diff = HistDifference(*pCurr,currSeg[*pCurr]);
 				//if(hist_diff <= MIN_REGION_HIST && ((pCurr)->m_size < MAX_CONVERGING_SIZE || (size_diff <= (pCurr)->m_size * MIN_REGION_SIZE && min < MIN_REGION_DIST)))
-				SetBranch(*pCurr,(*pCurr)->m_level,currSeg[**pCurr].m_centroid3D.intensity);
+				SetBranch(this,*pCurr,(*pCurr)->m_level,currSeg[**pCurr].m_centroid3D.intensity);
 			}
 			++pCurr;
 		}

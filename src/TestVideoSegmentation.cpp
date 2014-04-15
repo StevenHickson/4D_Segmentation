@@ -19,29 +19,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 // TestVideoSegmentation.cpp : Defines the entry point for the console application.
 //
 
-#include <iostream>
-#include <pcl/io/pcd_io.h>
-#include <pcl/io/ply_io.h>
-#include <pcl/point_types.h>
-#include <pcl/point_cloud.h>
-#include <pcl/common/time.h>
-#include <pcl/features/normal_3d.h>
-#include <pcl/features/integral_image_normal.h>
-#include <pcl/visualization/cloud_viewer.h>
-
-#include "Microsoft_grabber.h"
-#include <pcl/visualization/cloud_viewer.h>
-/*#include <FaceTrackLib.h>
-#include <KinectInteraction.h>
-#include <NuiKinectFusionApi.h>
-#include <NuiKinectFusionDepthProcessor.h>
-#include <NuiKinectFusionVolume.h>*/
-
-#include <opencv2/opencv.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include "Edges.h"
-#include "OpticalFlow.h"
-#include "GraphSegmentation.h"
+#include "TestVideoSegmentation.h"
 
 using namespace std;
 using namespace pcl;
@@ -212,15 +190,6 @@ inline void minMax(const PointCloud<PointNormal>::ConstPtr &cloud, PointNormal *
 	}
 }
 
-inline void EstimateNormals(const PointCloud<PointXYZRGBA>::ConstPtr &cloud, PointCloud<PointNormal>::Ptr &normals) {
-	pcl::IntegralImageNormalEstimation<pcl::PointXYZRGBA, pcl::PointNormal> ne;
-	ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
-	ne.setMaxDepthChangeFactor(0.02f);
-	ne.setNormalSmoothingSize(10.0f);
-	ne.setInputCloud(cloud);
-	ne.compute(*normals);
-}
-
 class SimpleSegmentViewer
 {
 public:
@@ -236,19 +205,15 @@ public:
 			//const KinectData* convert = data.get();
 			sharedCloud = (data->cloud.makeShared());
 			EstimateNormals(sharedCloud,normals);
-			/*PointNormal min, max;
-			minMax(normals,&min,&max);*/
+			PointNormal min, max;
+			minMax(normals,&min,&max);
 			MakeCloudDense(cloud);
 			//MakeCloudDense(normals);
-			//io::savePLYFileASCII<PointXYZRGBA>("test2.ply",cloud);
-			stseg.AddSlice(cloud,2.5f,700,800,0.5f,10,200,label,segment);
-			//SegmentNormals(cloud,normals,0.5f,200,200,label,segment);
+			//stseg.AddSlice(cloud,2.5f,700,800,0.5f,10,200,label,segment);
+			//SegmentNormals(cloud,normals,0.5f,300,300,label,segment);
+			SegmentColorAndNormals(cloud,normals,0.8f,0.5f,25,50,label,segment);
 			double end = pcl::getTime();
 			cout << "Time: " << (end - begin) << endl;
-			//io::savePLYFileASCII<PointXYZRGBA>("test3.ply",*segment);
-			//pcl::io::savePCDFile("output.pcd",*segment);
-			//viewer1->showCloud(data->cloud.makeShared());
-			//viewer.showCloud(segment);
 			//copyPointCloud(data->cloud,*sharedCloud);
 			update = true;
 			normalMutex.unlock();
@@ -298,8 +263,10 @@ public:
 
 int main (int argc, char** argv) {
 	try {
-		SimpleSegmentViewer v;
-		v.run();
+		//SimpleSegmentViewer v;
+		//v.run();
+		BuildNYUDataset(string(argv[1]));
+		cout << "Done" << endl;
 	} catch (pcl::PCLException e) {
 		cout << e.detailedMessage() << endl;
 	} catch (std::exception &e) {
