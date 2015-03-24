@@ -79,9 +79,9 @@ void iExtractRGBDColorSpace(const PointCloud<PointXYZRGBA>& in, Mat &B, Mat &G, 
 	PointCloudBgr::const_iterator pI = in.begin();
 	Mat_<float>::iterator pB = B.begin<float>(),pG = G.begin<float>(),pR = R.begin<float>(),pD = D.begin<float>();
 	while(pI != in.end()) {
-		*pB = ((float)pI->b - 127.5f) / 127.5f;
-		*pG = ((float)pI->g - 127.5f) / 127.5f;
-		*pR = ((float)pI->r - 127.5f) / 127.5f;
+		*pB = (float)pI->b;
+		*pG = (float)pI->g;
+		*pR = (float)pI->r;
 		*pD = 1000.0f*pI->z;
 		pI++; pB++; pG++; pR++; pD++;
 	}
@@ -393,6 +393,334 @@ void iBuildGraphColorAndNormals(const PointCloud<PointXYZRGBA> &color,
 	*num_edges = num;
 }
 
+void iBuildGraph(const deque< PointCloud<PointXYZRGBA> > &clouds,
+				 float sigma_depth,
+				 float sigma_color,
+				 Edge3D *&edges,
+				 int *num_edges)
+{
+	int width = clouds[0].width;
+	int height = clouds[0].height;
+	int num = 0;
+	int x, y, xp, ym, yp;
+	int safeWidth = width - 1, safeHeight = height - 1;
+	int reserve_size = NUM_FRAMES*clouds[0].size()*9;
+	//printf("Reserve size = %d\n",reserve_size);
+	edges = (Edge3D*) malloc(reserve_size*sizeof(Edge3D));
+	if(edges == NULL) {
+		printf("Error, could not malloc\n");
+		return;
+	}
+	Mat R,G,B,D, smooth_r, smooth_g, smooth_b, smooth_d;
+
+	Edge3D *p = edges;
+	Mat_<float> past_r,past_g,past_b,past_d;
+	for( int z = 0; z < NUM_FRAMES; z++) {
+		iExtractRGBDColorSpace(clouds[z], B, G, R, D);
+		iSmooth(B, sigma_color, smooth_b);
+		iSmooth(G, sigma_color, smooth_g);
+		iSmooth(R, sigma_color, smooth_r);
+		if(sigma_depth == 0)
+			smooth_d = D;
+		else
+			iSmooth(D, sigma_depth, smooth_d);
+
+		Mat_<float>::const_iterator pR = smooth_r.begin<float>(), pG = smooth_g.begin<float>(), pB = smooth_b.begin<float>(), pD = smooth_d.begin<float>();
+		Mat_<float>::const_iterator pRBegin = pR, pGBegin = pG, pBBegin = pB, pDBegin = pD;
+		int currDepthIter = z * height * width, pastDepthIter = (z - 1) * height * width, priorDepthIter = NUM_FRAMES / 2 * height * width;
+		for ( y = 0, ym = -1, yp = 1; y < height; y++, ym++, yp++)
+		{
+			for ( x = 0, xp = 1; x < width; x++, xp++)
+			{
+				//cout << x << ", " << y << endl;
+				if (x < safeWidth)
+				{
+					Edge3D edge;
+					edge.a = y * width + x;
+					edge.b = y * width + xp;
+					edge.w = fabsf(*pD - *(pDBegin + edge.b));
+					edge.w2 =  sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+					edge.a += currDepthIter;
+					edge.b += currDepthIter;
+					*p++ = edge;
+					num++;
+				}
+				if (y < safeHeight)
+				{
+					Edge3D edge;
+					edge.a = y * width + x;
+					edge.b = yp * width + x;
+					edge.w = fabsf(*pD - *(pDBegin + edge.b));
+					edge.w2 =  sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+					edge.a += currDepthIter;
+					edge.b += currDepthIter;
+					*p++ = edge;
+					num++;
+				}
+				if ((x < safeWidth) && (y < safeHeight)) 
+				{
+					Edge3D edge;
+					edge.a = y * width + x;
+					edge.b = yp * width + xp;
+					edge.w = fabsf(*pD - *(pDBegin + edge.b));
+					edge.w2 =  sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+					edge.a += currDepthIter;
+					edge.b += currDepthIter;
+					*p++ = edge;
+					num++;
+				}
+				if ((x < safeWidth) && (y > 0))
+				{
+					Edge3D edge;
+					edge.a  = y * width + x;
+					edge.b  = ym * width + xp;
+					edge.w = fabsf(*pD - *(pDBegin + edge.b));
+					edge.w2 =  sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+					edge.a += currDepthIter;
+					edge.b += currDepthIter;
+					*p++ = edge;
+					num++;
+				}
+				if(z > 0) {
+					//do the same for the points in the past
+					//I need to change it so that these use optical flow
+					Edge3D edge;
+					edge.a = y * width + x;
+					edge.b = y * width + x;
+					edge.w = fabsf(*pD - *(pDBegin + past_d(edge.b)));
+					edge.w2 =  sqrtf(square(*pR - past_r(edge.b))+square(*pG - past_g(edge.b))+square(*pB - past_b(edge.b)));
+					edge.a += currDepthIter;
+					edge.b += pastDepthIter;
+					*p++ = edge;
+					num++;
+					if (x < safeWidth)
+					{
+						Edge3D edge;
+						edge.a = y * width + x;
+						edge.b = y * width + xp;
+						edge.w = fabsf(*pD - *(pDBegin + past_d(edge.b)));
+						edge.w2 =  sqrtf(square(*pR - past_r(edge.b))+square(*pG - past_g(edge.b))+square(*pB - past_b(edge.b)));
+						edge.a += currDepthIter;
+						edge.b += pastDepthIter;
+						*p++ = edge;
+						num++;
+					}
+					if (y < safeHeight)
+					{
+						Edge3D edge;
+						edge.a = y * width + x;
+						edge.b = yp * width + x;
+						edge.w = fabsf(*pD - *(pDBegin + past_d(edge.b)));
+						edge.w2 =  sqrtf(square(*pR - past_r(edge.b))+square(*pG - past_g(edge.b))+square(*pB - past_b(edge.b)));
+						edge.a += currDepthIter;
+						edge.b += pastDepthIter;
+						*p++ = edge;
+						num++;
+					}
+					if ((x < safeWidth) && (y < safeHeight)) 
+					{
+						Edge3D edge;
+						edge.a = y * width + x;
+						edge.b = yp * width + xp;
+						edge.w = fabsf(*pD - *(pDBegin + past_d(edge.b)));
+						edge.w2 =  sqrtf(square(*pR - past_r(edge.b))+square(*pG - past_g(edge.b))+square(*pB - past_b(edge.b)));
+						edge.a += currDepthIter;
+						edge.b += pastDepthIter;
+						*p++ = edge;
+						num++;
+					}
+					if ((x < safeWidth) && (y > 0))
+					{
+						Edge3D edge;
+						edge.a  = y * width + x;
+						edge.b  = ym * width + xp;
+						edge.w = fabsf(*pD - *(pDBegin + past_d(edge.b)));
+						edge.w2 =  sqrtf(square(*pR - past_r(edge.b))+square(*pG - past_g(edge.b))+square(*pB - past_b(edge.b)));
+						edge.a += currDepthIter;
+						edge.b += pastDepthIter;
+						*p++ = edge;
+						num++;
+					}
+				}
+				pR++; pG++; pB++; pD++;
+			}
+		}
+		R.release();
+		G.release();
+		B.release();
+		D.release();
+		past_r.release();
+		past_g.release();
+		past_b.release();
+		past_d.release();
+		past_r = smooth_r;
+		past_g = smooth_g;
+		past_b = smooth_b;
+		past_d = smooth_d;
+	}
+	*num_edges = num;
+}
+
+void iBuildGraph(const deque< PointCloud<PointXYZRGBA> > &clouds,
+				 float sigma_depth,
+				 float sigma_color,
+				 float alpha,
+				 Edge *&edges,
+				 int *num_edges)
+{
+	int width = clouds[0].width;
+	int height = clouds[0].height;
+	int num = 0;
+	int x, y, xp, ym, yp;
+	int safeWidth = width - 1, safeHeight = height - 1;
+	int reserve_size = NUM_FRAMES*clouds[0].size()*9;
+	//printf("Reserve size = %d\n",reserve_size);
+	edges = (Edge3D*) malloc(reserve_size*sizeof(Edge3D));
+	if(edges == NULL) {
+		printf("Error, could not malloc\n");
+		return;
+	}
+	Mat R,G,B,D, smooth_r, smooth_g, smooth_b, smooth_d;
+
+	Edge *p = edges;
+	Mat_<float> past_r,past_g,past_b,past_d;
+	for( int z = 0; z < NUM_FRAMES; z++) {
+		iExtractRGBDColorSpace(clouds[z], B, G, R, D);
+		iSmooth(B, sigma_color, smooth_b);
+		iSmooth(G, sigma_color, smooth_g);
+		iSmooth(R, sigma_color, smooth_r);
+		if(sigma_depth == 0)
+			smooth_d = D;
+		else
+			iSmooth(D, sigma_depth, smooth_d);
+
+		Mat_<float>::const_iterator pR = smooth_r.begin<float>(), pG = smooth_g.begin<float>(), pB = smooth_b.begin<float>(), pD = smooth_d.begin<float>();
+		Mat_<float>::const_iterator pRBegin = pR, pGBegin = pG, pBBegin = pB, pDBegin = pD;
+		int currDepthIter = z * height * width, pastDepthIter = (z - 1) * height * width, priorDepthIter = NUM_FRAMES / 2 * height * width;
+		for ( y = 0, ym = -1, yp = 1; y < height; y++, ym++, yp++)
+		{
+			for ( x = 0, xp = 1; x < width; x++, xp++)
+			{
+				//cout << x << ", " << y << endl;
+				if (x < safeWidth)
+				{
+					Edge edge;
+					edge.a = y * width + x;
+					edge.b = y * width + xp;
+					edge.w = alpha * fabsf(*pD - *(pDBegin + edge.b)) + (1.0f - alpha) * sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+					edge.a += currDepthIter;
+					edge.b += currDepthIter;
+					*p++ = edge;
+					num++;
+				}
+				if (y < safeHeight)
+				{
+					Edge edge;
+					edge.a = y * width + x;
+					edge.b = yp * width + x;
+					edge.w = alpha * fabsf(*pD - *(pDBegin + edge.b)) + (1.0f - alpha) * sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+					edge.a += currDepthIter;
+					edge.b += currDepthIter;
+					*p++ = edge;
+					num++;
+				}
+				if ((x < safeWidth) && (y < safeHeight)) 
+				{
+					Edge edge;
+					edge.a = y * width + x;
+					edge.b = yp * width + xp;
+					edge.w = alpha * fabsf(*pD - *(pDBegin + edge.b)) + (1.0f - alpha) * sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+					edge.a += currDepthIter;
+					edge.b += currDepthIter;
+					*p++ = edge;
+					num++;
+				}
+				if ((x < safeWidth) && (y > 0))
+				{
+					Edge edge;
+					edge.a  = y * width + x;
+					edge.b  = ym * width + xp;
+					edge.w = alpha * fabsf(*pD - *(pDBegin + edge.b)) + (1.0f - alpha) * sqrtf(square(*pR - *(pRBegin + edge.b))+square(*pG - *(pGBegin + edge.b))+square(*pB - *(pBBegin + edge.b)));
+					edge.a += currDepthIter;
+					edge.b += currDepthIter;
+					*p++ = edge;
+					num++;
+				}
+				if(z > 0) {
+					//do the same for the points in the past
+					//I need to change it so that these use optical flow
+					Edge edge;
+					edge.a = y * width + x;
+					edge.b = y * width + x;
+					edge.w = alpha * fabsf(*pD - *(pDBegin + past_d(edge.b))) + (1.0f - alpha) * sqrtf(square(*pR - past_r(edge.b))+square(*pG - past_g(edge.b))+square(*pB - past_b(edge.b)));
+					edge.a += currDepthIter;
+					edge.b += pastDepthIter;
+					*p++ = edge;
+					num++;
+					if (x < safeWidth)
+					{
+						Edge edge;
+						edge.a = y * width + x;
+						edge.b = y * width + xp;
+						edge.w = alpha * fabsf(*pD - *(pDBegin + past_d(edge.b))) + (1.0f - alpha) * sqrtf(square(*pR - past_r(edge.b))+square(*pG - past_g(edge.b))+square(*pB - past_b(edge.b)));
+						edge.a += currDepthIter;
+						edge.b += pastDepthIter;
+						*p++ = edge;
+						num++;
+					}
+					if (y < safeHeight)
+					{
+						Edge edge;
+						edge.a = y * width + x;
+						edge.b = yp * width + x;
+						edge.w = alpha * fabsf(*pD - *(pDBegin + past_d(edge.b))) + (1.0f - alpha) * sqrtf(square(*pR - past_r(edge.b))+square(*pG - past_g(edge.b))+square(*pB - past_b(edge.b)));
+						edge.a += currDepthIter;
+						edge.b += pastDepthIter;
+						*p++ = edge;
+						num++;
+					}
+					if ((x < safeWidth) && (y < safeHeight)) 
+					{
+						Edge edge;
+						edge.a = y * width + x;
+						edge.b = yp * width + xp;
+						edge.w = alpha * fabsf(*pD - *(pDBegin + past_d(edge.b))) + (1.0f - alpha) * sqrtf(square(*pR - past_r(edge.b))+square(*pG - past_g(edge.b))+square(*pB - past_b(edge.b)));
+						edge.a += currDepthIter;
+						edge.b += pastDepthIter;
+						*p++ = edge;
+						num++;
+					}
+					if ((x < safeWidth) && (y > 0))
+					{
+						Edge edge;
+						edge.a  = y * width + x;
+						edge.b  = ym * width + xp;
+						edge.w = alpha * fabsf(*pD - *(pDBegin + past_d(edge.b))) + (1.0f - alpha) * sqrtf(square(*pR - past_r(edge.b))+square(*pG - past_g(edge.b))+square(*pB - past_b(edge.b)));
+						edge.a += currDepthIter;
+						edge.b += pastDepthIter;
+						*p++ = edge;
+						num++;
+					}
+				}
+				pR++; pG++; pB++; pD++;
+			}
+		}
+		R.release();
+		G.release();
+		B.release();
+		D.release();
+		past_r.release();
+		past_g.release();
+		past_b.release();
+		past_d.release();
+		past_r = smooth_r;
+		past_g = smooth_g;
+		past_b = smooth_b;
+		past_d = smooth_d;
+	}
+	*num_edges = num;
+}
+
 
 void iBuildGraphCUDA(const PointCloud<PointXYZRGBA>::ConstPtr &in,
 					 float sigma_depth,
@@ -418,7 +746,7 @@ void iBuildGraphCUDA(const PointCloud<PointXYZRGBA>::ConstPtr &in,
 	//PointCloud<Bgr> norm;
 	//Normalize(in,&norm);
 
-	igpuBuildGraph(smooth_r, smooth_g, smooth_b, smooth_d, edges, reserve_size);
+	//igpuBuildGraph(smooth_r, smooth_g, smooth_b, smooth_d, edges, reserve_size);
 	R.release();
 	G.release();
 	B.release();
@@ -602,15 +930,15 @@ void random_rgb(Vec3b &c)
 }
 
 int SHGraphSegment(
-	PointCloudBgr &in, 
+	const PointCloudBgr &in, 
 	float sigma_depth, 
 	float c_depth, 
 	int depth_min_size,
 	float sigma_color,
 	float c_color, 
 	int color_min_size,
-	PointCloudInt *out,
-	PointCloudBgr *out_color) 
+	PointCloud<PointXYZI>::Ptr &out,
+	PointCloud<PointXYZRGBA>::Ptr &out_color)
 {
 
 	int i, size = in.size();
@@ -827,6 +1155,300 @@ int Segment3D::AddSlice(
 }
 
 void Segment3D::Merge() {
+	currTree.TemporalCorrection(prevTree,1);
+	//currTree.TemporalCorrection(prevList,currList,1);
+}
+
+inline void Set(PointCloud<Normal> *flow, const Normal &val)
+{
+	for (PointCloud<Normal>::iterator p = flow->begin() ; p != flow->end() ; p++)  *p = val;
+}
+
+int Segment4DBig::AddSlice(
+	const PointCloudBgr &in, 
+	float alpha,
+	float sigma_depth, 
+	float sigma_color,
+	float c, 
+	int min_size) {
+		clouds.push_back(in);
+		//need to also compute optical flow here
+		if(!m_init) {
+			PointCloud<Normal> tmp_flow;
+			tmp_flow.resize(in.width * in.height);
+			tmp_flow.width = in.width;
+			tmp_flow.height = in.height;
+			Normal zero;
+			zero.normal_x = zero.normal_y = zero.normal_z = 0.0f;
+			Set(&tmp_flow, zero);
+			flows.push_back(tmp_flow);
+		} else {
+			//printf("Computing flow\n");
+			PointCloud<Normal> tmp_flow;
+			PointCloudBgr tmp_cloud = *(clouds.rbegin() + 1);
+			ComputeOpticalFlow(tmp_cloud, in, &tmp_flow);
+			flows.push_back(tmp_flow);
+		}
+		if(clouds.size() > NUM_FRAMES) {
+			clouds.pop_front();
+			flows.pop_front();
+		}
+		//	printf("done computing flow\n");
+		if(m_init % m_merge_iter == 0 && m_init >= NUM_FRAMES) {
+			//printf("I'm merging and such, m_init == %d\n", m_init);
+			int i, size = NUM_FRAMES*in.size();
+			Universe currU = Universe(size);
+			Edge *currE = NULL;
+			int num_edges;
+			iBuildGraph(clouds,sigma_depth,sigma_color,alpha,currE,&num_edges);
+			if(currE == NULL || num_edges == 0) {
+				printf("Error, graph has no edges\n");
+				return 0;
+			}
+			iSegment_graph(size, num_edges, currE, c, &currU);
+			iJoin_graph(currE,num_edges,min_size, &currU);
+			free(currE);
+
+			PointCloudInt::iterator pO;
+			PointCloudBgr::const_iterator pI;
+			//need to do this for all frames
+			i = 0;
+			for(int c = 0; c < NUM_FRAMES; c++) {
+				labels[c].height = in.height;
+				labels[c].width = in.width;
+				labels[c].is_dense = false;
+				labels[c].points.resize (in.height * in.width);
+				labels_colored[c].height = in.height;
+				labels_colored[c].width = in.width;
+				labels_colored[c].is_dense = false;
+				labels_colored[c].points.resize (in.height * in.width);
+				pO = labels[c].begin();
+				pI = clouds[c].begin();
+				while(pI != clouds[c].end()) {
+					int segment = currU.find(i);
+					pO->x = pI->x;
+					pO->y = pI->y;
+					pO->z = pI->z;
+					pO->intensity = segment;
+					++pI; ++pO; ++i;
+				}
+			}
+
+			//RegionTree4D tree;
+			if(m_init <= NUM_FRAMES) {
+				int colorSize = size;
+				m_colors = (Vec3b *) malloc(colorSize*sizeof(Vec3b));
+				Vec3b *pColor = m_colors;
+				for (i = 0; i < colorSize; i++)
+				{
+					Vec3b color;
+					random_rgb(color);
+					*pColor++ = color;
+				}
+				prevTree.Create(clouds, flows, labels, currU.num_sets(), m_maxLabel);
+			} else {
+				currTree.Create(clouds, flows, labels, currU.num_sets(), m_maxLabel);
+				Merge();
+				prevTree.Release();
+				prevTree = currTree;
+			}
+			m_maxLabel += currU.num_sets();
+			//set past value to current
+			for(int c = 0; c < NUM_FRAMES; c++) {
+				PointCloudBgr::iterator pC = labels_colored[c].begin();
+				pO = labels[c].begin();
+				while(pC != labels_colored[c].end()) {
+					pC->x = pO->x;
+					pC->y = pO->y;
+					pC->z = pO->z;
+					Vec3b tmp = m_colors[int(pO->intensity)];
+					pC->r = tmp[2];
+					pC->g = tmp[1];
+					pC->b = tmp[0];
+					pC->a = 255;
+					++pO; ++pC;
+				}
+			}
+			m_init++;
+			return currU.num_sets();
+		}
+		m_init++;
+		return 0;
+}
+
+int Segment4DBig::AddSlice(
+	const PointCloudBgr &in, 
+	float sigma_depth, 
+	float c_depth, 
+	int depth_min_size,
+	float max_depth, 
+	float sigma_color,
+	float c_color, 
+	int color_min_size) {
+		clouds.push_back(in);
+		//need to also compute optical flow here
+		if(!m_init) {
+			PointCloud<Normal> tmp_flow;
+			tmp_flow.resize(in.width * in.height);
+			tmp_flow.width = in.width;
+			tmp_flow.height = in.height;
+			Normal zero;
+			zero.normal_x = zero.normal_y = zero.normal_z = 0.0f;
+			Set(&tmp_flow, zero);
+			flows.push_back(tmp_flow);
+		} else {
+			//printf("Computing flow\n");
+			PointCloud<Normal> tmp_flow;
+			PointCloudBgr tmp_cloud = *(clouds.rbegin() + 1);
+			ComputeOpticalFlow(tmp_cloud, in, &tmp_flow);
+			flows.push_back(tmp_flow);
+		}
+		if(clouds.size() > NUM_FRAMES) {
+			clouds.pop_front();
+			flows.pop_front();
+		}
+		//	printf("done computing flow\n");
+		if(m_init % m_merge_iter == 0 && m_init >= NUM_FRAMES) {
+			//printf("I'm merging and such, m_init == %d\n", m_init);
+			int i, size = NUM_FRAMES*in.size();
+			Universe currU_C = Universe(size);
+			Universe currU_D = Universe(size);
+			Edge3D *currE = NULL;
+			int num_edges;
+			iBuildGraph(clouds,sigma_depth,sigma_color,currE,&num_edges);
+			if(currE == NULL || num_edges == 0) {
+				printf("Error, graph has no edges\n");
+				return 0;
+			}
+			//prevC_Map.clear();
+			//prevD_Map.clear();
+			iSegment_graph(size, num_edges, currE, c_depth, &currU_D);
+			iJoin_graph(currE,num_edges,depth_min_size, &currU_D);
+			iSegmentStep2_graph(size,num_edges,currE,c_color,currU_D,&currU_C);
+			iJoin_graph(currE,num_edges,color_min_size,&currU_C);
+			free(currE);
+
+			PointCloudInt::iterator pO;
+			PointCloudBgr::const_iterator pI;
+			//need to do this for all frames
+			i = 0;
+			for(int c = 0; c < NUM_FRAMES; c++) {
+				labels[c].height = in.height;
+				labels[c].width = in.width;
+				labels[c].is_dense = false;
+				labels[c].points.resize (in.height * in.width);
+				labels_colored[c].height = in.height;
+				labels_colored[c].width = in.width;
+				labels_colored[c].is_dense = false;
+				labels_colored[c].points.resize (in.height * in.width);
+				pO = labels[c].begin();
+				pI = clouds[c].begin();
+				while(pI != clouds[c].end()) {
+					int segment = currU_C.find(i);
+					pO->x = pI->x;
+					pO->y = pI->y;
+					pO->z = pI->z;
+					pO->intensity = segment;
+					++pI; ++pO; ++i;
+				}
+			}
+
+			//RegionTree4D tree;
+			if(m_init <= NUM_FRAMES) {
+				int colorSize = size;
+				m_colors = (Vec3b *) malloc(colorSize*sizeof(Vec3b));
+				Vec3b *pColor = m_colors;
+				for (i = 0; i < colorSize; i++)
+				{
+					Vec3b color;
+					random_rgb(color);
+					*pColor++ = color;
+				}
+				prevTree.Create(clouds, flows, labels, currU_C.num_sets(), m_maxLabel);
+				//prevTree.PropagateRegionHierarchy(TREE_LEVEL);
+				for(int c = 0; c < NUM_FRAMES; c++) {
+					labels_old[c] = labels[c];
+				}
+			} else {
+				currTree.Create(clouds, flows, labels, currU_C.num_sets(), m_maxLabel);
+				//currTree.PropagateRegionHierarchy(TREE_LEVEL);
+				//Merge2();
+				Merge();
+				prevTree.Release();
+				prevTree = currTree;
+				//currTree.ImplementSegmentation(TREE_LEVEL);
+			}
+			m_maxLabel += currU_C.num_sets();
+			//set past value to current
+			for(int c = 0; c < NUM_FRAMES; c++) {
+				PointCloudBgr::iterator pC = labels_colored[c].begin();
+				pO = labels[c].begin();
+				while(pC != labels_colored[c].end()) {
+					pC->x = pO->x;
+					pC->y = pO->y;
+					pC->z = pO->z;
+					Vec3b tmp = m_colors[int(pO->intensity)];
+					pC->r = tmp[2];
+					pC->g = tmp[1];
+					pC->b = tmp[0];
+					pC->a = 255;
+					++pO; ++pC;
+				}
+			}
+			m_init++;
+			return currU_C.num_sets();
+		}
+		m_init++;
+		return 0;
+}
+
+void Segment4DBig::Merge2() {
+	//I need to go through each label and keep track of what labels are in that one in the past
+	const int size = NUM_FRAMES*labels[0].size();
+	map<int,int> *corrections = new map<int,int>[size]();
+	for(int c = 0; c < m_merge_iter; c++) {
+		PointCloudInt::iterator pPast = labels_old[c+m_merge_iter].begin(), pCurr = labels[c].begin();
+		while(pCurr != labels[c].end()) {
+			corrections[int(pCurr->intensity)][int(pPast->intensity)]++;
+			++pCurr; ++pPast;
+		}
+	}
+	//Find the max of each label choice
+	int *selection = new int[size]();
+	int *pSel = selection;
+	map<int,int> *pFix = corrections, *pFixEnd = corrections + size;
+	int i = 0;
+	while(pFix != pFixEnd) {
+		if(!pFix->empty()) {
+			map<int,int>::iterator pMap = pFix->begin();
+			int max = pMap->second, val = pMap->first;
+			++pMap;
+			while(pMap != pFix->end()) {
+				if(pMap->second > max) {
+					max = pMap->second;
+					val = pMap->first;
+				}
+				++pMap;
+			}
+			*pSel = val;
+		}
+		++pFix; ++pSel; ++i;
+	}
+	delete[] corrections;
+
+	//update the labels
+	for(int c = 0; c < NUM_FRAMES; c++) {
+		PointCloudInt::iterator pPast = labels_old[c].begin(), pCurr = labels[c].begin();
+		while(pCurr != labels[c].end()) {
+			pPast = pCurr; //update the past on the fly as well
+			pCurr->intensity = selection[int(pCurr->intensity)];
+			++pCurr; ++pPast;
+		}
+	}
+	delete[] selection;
+}
+
+void Segment4DBig::Merge() {
 	currTree.TemporalCorrection(prevTree,1);
 	//currTree.TemporalCorrection(prevList,currList,1);
 }

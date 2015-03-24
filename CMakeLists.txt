@@ -11,24 +11,16 @@ ENDIF()
 
 find_package(PCL 1.7 REQUIRED)
 find_package( OpenCV REQUIRED )
-FIND_PACKAGE(CUDA REQUIRED)
  
-SET(CUDA_NVCC_FLAGS "-arch=sm_20" CACHE STRING "nvcc flags" FORCE)
-#SET (CUDA_VERBOSE_BUILD ON CACHE BOOL "nvcc verbose" FORCE)
-
 project(4D_Segmentation)
 
 add_subdirectory(src)
 
 include_directories(C:/opencv/build)
 include_directories(${PCL_INCLUDE_DIRS})
-include_directories(C:/blepo/external64/Microsoft/Kinect)
 include_directories(${4D_Segmentation_SOURCE_DIR}/include)
-include_directories(../PCL_WindowsKinectSDK/include)
 
 link_directories(${PCL_LIBRARY_DIRS})
-link_directories(C:/blepo/external64/Microsoft/Kinect)
-link_directories(../../PCL_WindowsKinectSDK/build/)
 
 add_definitions(${PCL_DEFINITIONS})
 
@@ -43,7 +35,8 @@ list(REMOVE_DUPLICATES 4D_Segmentation_INCLUDE_DIRS)
 
 include_directories(${4D_Segmentation_INCLUDE_DIRS})
 
-CUDA_ADD_LIBRARY(BuildGraph STATIC include/BuildGraph.h src/BuildGraph.cu)
+add_library (4D_Segmentation src/4D_Segmentation.cpp src/RegionTree.cpp src/GraphSegmentation.cpp src/OpticalFlow.cpp ${4D_Segmentation_HEADERS})
+target_link_libraries (4D_Segmentation ${PCL_LIBRARIES} ${OpenCV_LIBS})
 
-add_executable (4D_Segmentation ${4D_Segmentation_SOURCES} ${4D_Segmentation_HEADERS})
-target_link_libraries (4D_Segmentation BuildGraph ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} ${PCL_LIBRARIES} ${OpenCV_LIBS} Kinect10.lib debug Debug/PCL_WindowsKinectSDK optimized Release/PCL_WindowsKinectSDK)
+add_executable (Test_Seg src/TestVideoSegmentation.cpp ${4D_Segmentation_HEADERS})
+target_link_libraries (Test_Seg 4D_Segmentation ${PCL_LIBRARIES} ${OpenCV_LIBS})

@@ -26,7 +26,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 #include "opencv2/core/core.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/video/video.hpp"
-#include "opencv2/gpu/gpu.hpp"
+//#include "opencv2/gpu/gpu.hpp"
 
 //DEFINES constants for kinect cameras
 #define KINECT_CX_C 3.5094272028759258e+02
@@ -55,7 +55,8 @@ typedef pcl::PointCloud<pcl::PointXYZI> PointCloudInt;
 typedef pcl::PointCloud<pcl::PointNormal> PointCloudNormal;
 
 void ComputeOpticalFlow(const cv::Mat &past, const cv::Mat &current, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &pastCloud, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &currCloud, pcl::PointCloud<pcl::Normal>::Ptr &flow);
-void ComputeOpticalFlowGPU(const cv::Mat &past, const cv::Mat &current, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &pastCloud, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &currCloud, pcl::PointCloud<pcl::Normal>::Ptr &flow);
+void ComputeOpticalFlow(const pcl::PointCloud<pcl::PointXYZRGBA> &pastCloud, const pcl::PointCloud<pcl::PointXYZRGBA> &currCloud, pcl::PointCloud<pcl::Normal> *flow);
+//void ComputeOpticalFlowGPU(const cv::Mat &past, const cv::Mat &current, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &pastCloud, const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &currCloud, pcl::PointCloud<pcl::Normal>::Ptr &flow);
 void Downsample2x2(const cv::Mat &in, cv::Mat &out);
 
 #endif //FLOW_H

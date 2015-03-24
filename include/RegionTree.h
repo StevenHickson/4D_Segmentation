@@ -41,7 +41,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 //RANGE = 0 - 6
 #define HIST_MUL_Z 5.0f
 //RANGE = -1 - 1
-#define HIST_MUL_N 10.0f //might need one of these just for w.
+#define HIST_MUL_N 10.0f
+//RANGE = -0.2 - 0.2
+#define HIST_MUL_OF 50.0f //might need one of these just for w.
 
 //Modifier for Depth in Histogram Difference
 #define HIST_DEPTH_MOD 1.0f
@@ -139,6 +141,50 @@ public:
 	}
 };
 
+class Region4DBig {
+public:
+	Region4DBig* m_regions[2]; //regions beneath this one
+	std::vector< pcl::PointXYZI* > m_nodes;
+	int m_numRegions; //number of regions
+	int m_level; //tree level (1 is the lowest that is a region)
+	unsigned int m_size; //Size of my region
+	//int m_label; //region label
+	cv::Point2f m_centroid; //if m_leaf 2D location, else centroid
+	pcl::PointXYZI m_centroid3D, m_min3D, m_max3D; //if a leaf (level 1), 3D location and value, else centroid and label
+	LABXYZUVW *m_hist;
+	std::vector<int> m_neighbors; //neighboring regions
+	std::map<int, Region4DBig*> m_neighbor_map;
+
+	//Need to change to all LAB and need to use a lot less new() calls (make the histogram one big array with NUM_BINS * 2 * n + 1 being the size
+	inline void InitializeRegion(pcl::PointXYZI *in, cv::Vec3b &color, const pcl::Normal &flow, const int label, const int i, const int j, const int level);
+	inline void InitializeRegion(Region4DBig *node1, Region4DBig *node2, int level, int min_size);
+	inline void AddNode(pcl::PointXYZI *in, cv::Vec3b &color, const pcl::Normal &flow, const int i, const int j);
+
+	bool operator<(const Region4DBig &other) const {
+		return m_centroid3D.intensity < other.m_centroid3D.intensity;
+	}
+	
+	void Release() {
+		if(m_numRegions > 0 && m_regions != NULL) {
+			for(int i = 0; i < m_numRegions; i++) {
+				if(m_regions[i] != NULL) {
+					m_regions[i]->Release();
+					delete m_regions[i];
+				}
+			}
+			if(m_hist != NULL) {
+				delete[] m_hist;
+				m_hist = NULL;
+			}
+			m_regions[0] = m_regions[1] = NULL;
+		}
+		m_numRegions = m_level = -1;
+		m_size = 0;
+		m_nodes.clear();
+		m_neighbors.clear();
+	}
+};
+
 template<class T, class HistContainer, class ColorContainer, class LabelContainer>
 class RegionTreeType {
 public:
@@ -178,6 +224,7 @@ public:
 	}
 
 	void Create(const ColorContainer &in, LabelContainer &labels, const pcl::PointCloud<pcl::PointNormal> &normals, int num_segments, int start_label);
+	void Create(std::deque< ColorContainer > &in, std::deque< pcl::PointCloud<pcl::Normal> > &flow, LabelContainer *labels, int num_segments, int start_label);
 	void TemporalCorrection(RegionTreeType<T,HistContainer,ColorContainer,LabelContainer> &past, int level);
 	void PropagateRegionHierarchy(int min_size = 0);
 	void UpdateCloud(int level);
@@ -198,5 +245,6 @@ public:
 };
 
 typedef RegionTreeType<Region3D,LABXYZUVW,pcl::PointCloud<pcl::PointXYZRGBA>,pcl::PointCloud<pcl::PointXYZI> > RegionTree3D;
+typedef RegionTreeType<Region4DBig,LABXYZUVW,PointCloudBgr,PointCloudInt> RegionTree4DBig;
 
 #endif //REGION_TREE_H

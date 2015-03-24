@@ -24,7 +24,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 #include "OpticalFlow.h"
 #include "Edges.h"
 #include "Segments.h"
-#include "BuildGraph.h"
 #include "RegionTree.h"
 #include <amp.h>
 #include <amp_math.h>
@@ -107,14 +106,14 @@ int SegmentColorAndNormals(const pcl::PointCloud<pcl::PointXYZRGBA> &cloud,
 	pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &out_color);
 
 int SHGraphSegment(
-	pcl::PointCloud<pcl::PointXYZRGBA> &in, 
+	const pcl::PointCloud<pcl::PointXYZRGBA> &in, 
 	float sigma_depth, 
 	float c_depth, 
 	int depth_min_size,
 	float sigma_color,
 	float c_color, 
 	int color_min_size,
-	pcl::PointCloud<pcl::PointXYZI> *out,
-	pcl::PointCloud<pcl::PointXYZRGBA> *out_color);
+	pcl::PointCloud<pcl::PointXYZI>::Ptr &out,
+	pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &out_color);
 
 #endif //GRAPH_SEGMENTATION_H
