@@ -91,8 +91,11 @@ void RGBDTSegmentation::AddSlice(const PointCloud<PointXYZRGBA>::ConstPtr &in,
 											 seg3d.AddSlice(*cloud, options.sigma_depth, options.c_depth, options.depth_min_size, options.sigma_color, options.c_color, options.color_min_size, out, out_color);
 										 } else {
 											 seg4d.AddSlice(*cloud, options.sigma_depth, options.c_depth, options.depth_min_size, options.max_depth, options.sigma_color, options.c_color, options.color_min_size);
-											 *out = seg4d.labels[7];
-											 *out_color = seg4d.labels_colored[7];
+											 *out = seg4d.labels[curr];
+											 *out_color = seg4d.labels_colored[curr];
+											 ++curr;
+											 if(curr == 8)
+												 curr = 4;
 										 }
 									 } else if(options.use_normals) {
 										 boost::shared_ptr<pcl::PointCloud<pcl::PointNormal> > normals;

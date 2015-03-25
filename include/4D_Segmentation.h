@@ -60,10 +60,11 @@ private:
 	SegmentationOptions options;
 	Segment4DBig seg4d;
 	Segment3D seg3d;
+	int curr;
 
 public:
-	RGBDTSegmentation() { }
-	RGBDTSegmentation(SegmentationOptions &in) {
+	RGBDTSegmentation() : curr(4) { }
+	RGBDTSegmentation(SegmentationOptions &in) : curr(4) {
 		options = in;
 	}
 
