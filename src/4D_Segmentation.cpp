@@ -83,22 +83,23 @@ inline void EstimateNormals(const PointCloud<PointXYZRGBA>::ConstPtr &cloud, Poi
 void RGBDTSegmentation::AddSlice(const PointCloud<PointXYZRGBA>::ConstPtr &in, 
 								 pcl::PointCloud<pcl::PointXYZI>::Ptr &out,
 								 pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &out_color) {
-
+									 boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA> > cloud(new pcl::PointCloud<pcl::PointXYZRGBA>);
+									 copyPointCloud(*in,*cloud);
+									 MakeCloudDense(*cloud);
 									 if(options.use_time) {
 										 if(options.use_fast_method || options.number_of_frames == 1) {
-											 seg3d.AddSlice(*in, options.sigma_depth, options.c_depth, options.depth_min_size, options.sigma_color, options.c_color, options.color_min_size, out, out_color);
+											 seg3d.AddSlice(*cloud, options.sigma_depth, options.c_depth, options.depth_min_size, options.sigma_color, options.c_color, options.color_min_size, out, out_color);
 										 } else {
-											 seg4d.AddSlice(*in, options.sigma_depth, options.c_depth, options.depth_min_size, options.max_depth, options.sigma_color, options.c_color, options.color_min_size);
+											 seg4d.AddSlice(*cloud, options.sigma_depth, options.c_depth, options.depth_min_size, options.max_depth, options.sigma_color, options.c_color, options.color_min_size);
 											 *out = seg4d.labels[7];
 											 *out_color = seg4d.labels_colored[7];
 										 }
 									 } else if(options.use_normals) {
 										 boost::shared_ptr<pcl::PointCloud<pcl::PointNormal> > normals;
-										 EstimateNormals(in, normals, false);
-										 //MakeCloudDense(in);
+										 EstimateNormals(cloud, normals, false);
 										 MakeCloudDense(normals);
-										 SegmentColorAndNormals(*in, normals, options.sigma_depth, options.sigma_color, options.c_normals, options.normals_min_size, out, out_color);
+										 SegmentColorAndNormals(*cloud, normals, options.sigma_depth, options.sigma_color, options.c_normals, options.normals_min_size, out, out_color);
 									 } else {
-										 SHGraphSegment(*in, options.sigma_depth, options.c_depth, options.depth_min_size, options.sigma_color, options.c_color, options.color_min_size, out, out_color);
+										 SHGraphSegment(*cloud, options.sigma_depth, options.c_depth, options.depth_min_size, options.sigma_color, options.c_color, options.color_min_size, out, out_color);
 									 }
 }

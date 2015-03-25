@@ -10,8 +10,8 @@
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include "Edges.h"
-#include "OpticalFlow.h"
-#include "GraphSegmentation.h"
+
+#include "4D_Segmentation.h"
 
 #include <string.h>
+#include <sstream>

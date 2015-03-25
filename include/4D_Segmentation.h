@@ -62,7 +62,7 @@ private:
 	Segment3D seg3d;
 
 public:
-
+	RGBDTSegmentation() { }
 	RGBDTSegmentation(SegmentationOptions &in) {
 		options = in;
 	}

@@ -493,7 +493,7 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, const 
 }
 
 void RegionTree4DBig::Create(deque<PointCloudBgr> &in, deque< pcl::PointCloud<pcl::Normal> > &flow, PointCloudInt *labels, int num_segments, int start_label) {
-	this->Release();
+	//this->Release();
 	*this = RegionTree4DBig(num_segments,in[0].width,in[0].height);
 	//the original region tree is only two levels, the original segments and then the voxels(leafs)
 
@@ -537,6 +537,7 @@ void RegionTree4DBig::Create(deque<PointCloudBgr> &in, deque< pcl::PointCloud<pc
 					if(numRegions >= totRegions) {
 						printf("Vector out of range\n");
 					}
+					region_list[numRegions] = new Region4DBig();
 					pRegion = (region_list[numRegions]);
 					//pRegion->InitializeRegion(pLabel, pIn->intensity, pLabel->intensity, i, j, 1);
 					region_list[numRegions]->InitializeRegion(pLabel._Ptr, Vec3b(pIn->b,pIn->g,pIn->r), *pFlow, current + start_label, i, j, 1);

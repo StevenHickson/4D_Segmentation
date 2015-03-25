@@ -73,6 +73,12 @@ void ComputeOpticalFlow(const PointCloud<PointXYZRGBA> &pastCloud, const PointCl
 				pOut->normal_x = (*pIn)[0] * pCloud->z * KINECT_FX_D;
 				pOut->normal_y = (*pIn)[1] * pCloud->z * KINECT_FY_D;
 				pOut->normal_z = (pCloud->z - pastCloud(Clamp(int(i - (*pIn)[0]),0,safeWidth), Clamp(int(j - (*pIn)[1]),0,safeHeight)).z);
+				/*if(_isnan(pOut->normal_x))
+					pOut->normal_x = 0;
+				if(_isnan(pOut->normal_y))
+					pOut->normal_y = 0;
+				if(_isnan(pOut->normal_z))
+					pOut->normal_z = 0;*/
 			}
 			++pIn; ++pOut; ++pCloud;
 		}

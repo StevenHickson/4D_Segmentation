@@ -46,7 +46,12 @@ template <typename T> inline T Clamp(T a, T minn, T maxx)
 
 inline int Round (float a)  
 {
-	assert( !_isnan( a ) );
+	//assert( !_isnan( a ) );
+	//Recently started happening. This has to be a pointer error somewhere that I need to figure out
+	if(_isnan( a )) {
+		//printf("This should never happen!!");
+		return 0;
+	}
 	return static_cast<int>(a>=0 ? a+0.5f : a-0.5f); 
 } 
 
