@@ -25,11 +25,11 @@ using namespace std;
 using namespace pcl;
 using namespace cv;
 
-class Seg4DViewer
+class SegViewer
 {
 public:
 
-	Seg4DViewer() :  viewer(new pcl::visualization::PCLVisualizer ("PCL Segmentation Viewer")), cloud((new pcl::PointCloud<pcl::PointXYZRGBA>)), label(new pcl::PointCloud<pcl::PointXYZI>), label_color(new pcl::PointCloud<pcl::PointXYZRGBA>) { }
+	SegViewer() :  viewer(new pcl::visualization::PCLVisualizer ("PCL Segmentation Viewer")), cloud((new pcl::PointCloud<pcl::PointXYZRGBA>)), label(new pcl::PointCloud<pcl::PointXYZI>), label_color(new pcl::PointCloud<pcl::PointXYZRGBA>) { }
 	
 	void Seg4DExample() {
 		SegmentationOptions options;
@@ -39,7 +39,36 @@ public:
 
 		PCDReader reader;
 		int i = 6;
-		while(!stopped && i < 107) {
+		while(!stopped && i < 57) {
+			//read the pointcloud file
+			stringstream fileName;
+			fileName << data_folder;
+			fileName << i;
+			fileName << ".pcd";
+			reader.read<pcl::PointXYZRGBA> (fileName.str(), *cloud);
+			cloud->width = 640;
+			cloud->height = 480;
+
+			//run the segmentation
+			//cloudMutex.lock();
+			segments.AddSlice(cloud, label, label_color);
+			update = true;
+			//cloudMutex.unlock();
+
+			++i;
+		}
+	}
+
+	void Seg4DFastExample() {
+		SegmentationOptions options;
+		//Set up options here
+		options.use_fast_method = true;
+
+		RGBDTSegmentation segments(options);
+
+		PCDReader reader;
+		int i = 6;
+		while(!stopped && i < 57) {
 			//read the pointcloud file
 			stringstream fileName;
 			fileName << data_folder;
@@ -62,7 +91,7 @@ public:
 	void run(string input) {
 		data_folder = input;
 		stopped = false;
-		boost::thread* readerThread = new boost::thread(boost::bind(&Seg4DViewer::Seg4DExample, this));
+		boost::thread* readerThread = new boost::thread(boost::bind(&SegViewer::Seg4DExample, this));
 		while(!viewer->wasStopped()) {
 			//cloudMutex.lock();
 			if(update) {
@@ -88,7 +117,7 @@ public:
 
 int main (int argc, char** argv) {
 	try {
-		Seg4DViewer example;
+		SegViewer example;
 		example.run(argv[1]);
 		cout << "Done" << endl;
 	} catch (pcl::PCLException e) {
