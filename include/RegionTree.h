@@ -22,8 +22,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 #include "OpticalFlow.h"
 #include "Edges.h"
 #include <vector>
-#include <amp.h>
-#include <amp_math.h>
 
 #define NUM_BINS 20
 #define NUM_BINS_XYZ 30
@@ -112,9 +110,9 @@ public:
 	LABXYZUVW *m_hist;
 	std::vector<int> m_neighbors; //neighboring regions
 
-	inline void InitializeRegion(pcl::PointXYZI *in, cv::Vec3b &color, const pcl::PointNormal &normal, int label, const int i, const int j, const int level);
+	inline void InitializeRegion(pcl::PointXYZI *in, cv::Vec3b color, const pcl::PointNormal &normal, int label, const int i, const int j, const int level);
 	inline void InitializeRegion(Region3D *node1, Region3D *node2, int level, int min_size);
-	inline void AddNode(pcl::PointXYZI *in, cv::Vec3b &color, const pcl::PointNormal &normal, const int i, const int j);
+	inline void AddNode(pcl::PointXYZI *in, cv::Vec3b color, const pcl::PointNormal &normal, const int i, const int j);
 
 	bool operator<(const Region3D &other) const {
 		return m_centroid3D.intensity < other.m_centroid3D.intensity;
@@ -156,9 +154,9 @@ public:
 	std::map<int, Region4DBig*> m_neighbor_map;
 
 	//Need to change to all LAB and need to use a lot less new() calls (make the histogram one big array with NUM_BINS * 2 * n + 1 being the size
-	inline void InitializeRegion(pcl::PointXYZI *in, cv::Vec3b &color, const pcl::Normal &flow, const int label, const int i, const int j, const int level);
+	inline void InitializeRegion(pcl::PointXYZI *in, cv::Vec3b color, const pcl::Normal &flow, const int label, const int i, const int j, const int level);
 	inline void InitializeRegion(Region4DBig *node1, Region4DBig *node2, int level, int min_size);
-	inline void AddNode(pcl::PointXYZI *in, cv::Vec3b &color, const pcl::Normal &flow, const int i, const int j);
+	inline void AddNode(pcl::PointXYZI *in, cv::Vec3b color, const pcl::Normal &flow, const int i, const int j);
 
 	bool operator<(const Region4DBig &other) const {
 		return m_centroid3D.intensity < other.m_centroid3D.intensity;

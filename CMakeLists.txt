@@ -1,3 +1,4 @@
+project(4D_Segmentation)
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
 SET_PROPERTY(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
@@ -12,7 +13,6 @@ ENDIF()
 find_package(PCL 1.7 REQUIRED)
 find_package( OpenCV REQUIRED )
  
-project(4D_Segmentation)
 
 add_subdirectory(src)
 

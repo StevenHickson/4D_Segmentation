@@ -1,4 +1,6 @@
 #include "GraphSegmentation.h"
+#include <pcl/features/normal_3d.h>
+#include <pcl/features/integral_image_normal.h>
 //#include "RegionTree.h"
 
 #ifndef max
@@ -32,7 +34,6 @@ inline T square(const T &x) { return x*x; };
 MAKE_FILTER(fgauss, (float) expf(-0.5*square(i/sigma)));
 
 using namespace std;
-using namespace concurrency;
 using namespace pcl;
 using namespace cv;
 
@@ -771,7 +772,7 @@ void iSegment_graph(int num_vertices, int num_edges, Edge*& edges, float c, Univ
 { 
 	Edge* pEdge = edges, *edgesEnd = pEdge + num_edges;
 	// sort edges by weight
-	concurrency::parallel_sort(pEdge, edgesEnd);
+	sort(pEdge, edgesEnd);
 	//thrustsort(pEdge,edgesEnd);
 
 	// init thresholds
@@ -812,7 +813,7 @@ void iSegment_graph(int num_vertices, int num_edges, Edge3D*& edges, float c, Un
 { 
 	Edge3D* pEdge = edges, *edgesEnd = pEdge + num_edges;
 	// sort edges by weight
-	concurrency::parallel_sort(pEdge, edgesEnd);
+	sort(pEdge, edgesEnd);
 	//thrustsort(pEdge,edgesEnd);
 
 	// init thresholds
@@ -852,7 +853,7 @@ void iSegmentStep2_graph(int num_vertices, int num_edges, Edge3D*& edges, float 
 { 
 	Edge3D* pEdge = edges, *edgesEnd = pEdge + num_edges;
 	// sort edges by weight
-	concurrency::parallel_sort(pEdge, edgesEnd,lessThan3D);
+	sort(pEdge, edgesEnd,lessThan3D);
 	//thrustsort2(pEdge,edgesEnd);
 
 	// init thresholds
@@ -927,6 +928,27 @@ void random_rgb(Vec3b &c)
 	c[0] = rand() % 255 + 1;
 	c[1] = rand() % 255 + 1;
 	c[2] = rand() % 255 + 1;
+}
+
+void EstimateNormals(const PointCloud<PointXYZRGBA>::ConstPtr &cloud, PointCloud<PointNormal>::Ptr &normals, bool fill) {
+	pcl::IntegralImageNormalEstimation<pcl::PointXYZRGBA, pcl::PointNormal> ne;
+	ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
+	ne.setMaxDepthChangeFactor(0.02f);
+	ne.setNormalSmoothingSize(10.0f);
+	ne.setInputCloud(cloud);
+	ne.compute(*normals);
+	if(fill) {
+		PointCloudNormal::iterator p = normals->begin();
+		while(p != normals->end()) {
+			if(isnan(p->normal_x))
+				p->normal_x = 0;
+			if(isnan(p->normal_y))
+				p->normal_y = 0;
+			if(isnan(p->normal_z))
+				p->normal_z = 0;
+			++p;
+		}
+	}
 }
 
 int SHGraphSegment(
@@ -1129,9 +1151,12 @@ int Segment3D::AddSlice(
 			pO->intensity = segment;
 			++pI; ++pO; ++i;
 		}
-		//currTree.Create(in,*out,currU_C.num_sets(),m_maxLabel);
-		//currTree.PropagateRegionHierarchy(75);
-		//currTree.ImplementSegmentation(TREE_LEVEL);
+        boost::shared_ptr<pcl::PointCloud<pcl::PointNormal> > normals(new pcl::PointCloud<pcl::PointNormal>);
+        EstimateNormals(in.makeShared(),normals,true);
+        currTree.Release();
+		currTree.Create(in,*out,*normals,currU_C.num_sets(),0);
+		currTree.PropagateRegionHierarchy(100);
+		currTree.ImplementSegmentation(0.25f);
 		m_maxLabel += currU_C.num_sets();
 		m_count++;
 		/*Merge();

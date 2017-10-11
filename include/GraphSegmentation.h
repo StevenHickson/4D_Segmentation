@@ -25,8 +25,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 #include "Edges.h"
 #include "Segments.h"
 #include "RegionTree.h"
-#include <amp.h>
-#include <amp_math.h>
 
 typedef struct
 {
@@ -87,6 +85,8 @@ public:
 	std::vector<uni_elt>elts;
 	int num;
 };
+
+void EstimateNormals(const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &cloud, pcl::PointCloud<pcl::PointNormal>::Ptr &normals, bool fill);
 
 int SegmentNormals(const pcl::PointCloud<pcl::PointXYZRGBA> &cloud, 
 	const pcl::PointCloud<pcl::PointNormal>::ConstPtr &in, 
