@@ -805,7 +805,7 @@ void iSegment_graph(int num_vertices, int num_edges, Edge*& edges, float c, Univ
 	}
 
 	// free up
-	delete threshold;
+	delete[] threshold;
 }
 
 
@@ -846,7 +846,7 @@ void iSegment_graph(int num_vertices, int num_edges, Edge3D*& edges, float c, Un
 	}
 
 	// free up
-	delete threshold;
+	delete[] threshold;
 }
 
 void iSegmentStep2_graph(int num_vertices, int num_edges, Edge3D*& edges, float c, Universe &u1, Universe *u2)
@@ -890,7 +890,7 @@ void iSegmentStep2_graph(int num_vertices, int num_edges, Edge3D*& edges, float 
 	}
 
 	// free up
-	delete threshold;
+	delete[] threshold;
 }
 
 inline void iJoin_graph(Edge *&edges, int num_edges, int min_size, Universe *u) {

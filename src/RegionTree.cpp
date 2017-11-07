@@ -116,9 +116,9 @@ inline void Region3D::InitializeRegion(PointXYZI *in, Vec3b color, const pcl::Po
 	m_hist[Clamp(Round(labxyz.l * HIST_MUL_L),0,NUM_BINS)].l++;
 	m_hist[Clamp(Round(labxyz.a * HIST_MUL_A),0,NUM_BINS)].a++;
 	m_hist[Clamp(Round(labxyz.b * HIST_MUL_B),0,NUM_BINS)].b++;
-	m_hist[Clamp(Round(labxyz.x * HIST_MUL_X),0,NUM_BINS_XYZ)].x++;
-	m_hist[Clamp(Round(labxyz.y * HIST_MUL_Y),0,NUM_BINS_XYZ)].y++;
-	m_hist[Clamp(Round(labxyz.z * HIST_MUL_Z),0,NUM_BINS_XYZ)].z++;
+	m_hist[Clamp(Round(labxyz.x * HIST_MUL_X),0,NUM_BINS_XYZ-1)].x++;
+	m_hist[Clamp(Round(labxyz.y * HIST_MUL_Y),0,NUM_BINS_XYZ-1)].y++;
+	m_hist[Clamp(Round(labxyz.z * HIST_MUL_Z),0,NUM_BINS_XYZ-1)].z++;
 	if(!isnan(labxyz.u))
 		m_hist[Clamp(Round(labxyz.u * HIST_MUL_N),0,NUM_BINS)].u++;
 	if(!isnan(labxyz.v))
@@ -130,8 +130,9 @@ inline void Region3D::InitializeRegion(PointXYZI *in, Vec3b color, const pcl::Po
 	m_centroid3D.y = m_min3D.y = m_max3D.y = in->y;
 	m_centroid3D.z = m_min3D.z = m_max3D.z = in->z;
 	m_centroid3D.intensity = label;
-	m_nodes.reserve(76800);
-	m_neighbors.reserve(8);
+	//m_nodes.reserve(76800);
+	//m_nodes.reserve(8);
+	//m_neighbors.reserve(8);
 	m_nodes.push_back(in);
 	m_regions[0] = m_regions[1] = NULL;
 	m_numRegions = 0;
@@ -212,9 +213,9 @@ inline void Region3D::AddNode(PointXYZI *in, Vec3b color, const pcl::PointNormal
 	m_hist[Clamp(Round(labxyz.l * HIST_MUL_L), 0, NUM_BINS)].l++;
 	m_hist[Clamp(Round(labxyz.a * HIST_MUL_A), 0, NUM_BINS)].a++;
 	m_hist[Clamp(Round(labxyz.b * HIST_MUL_B), 0, NUM_BINS)].b++;
-	m_hist[Clamp(Round(labxyz.x * HIST_MUL_X), 0, NUM_BINS_XYZ)].x++;
-	m_hist[Clamp(Round(labxyz.y * HIST_MUL_Y), 0, NUM_BINS_XYZ)].y++;
-	m_hist[Clamp(Round(labxyz.z * HIST_MUL_Z), 0, NUM_BINS_XYZ)].z++;
+	m_hist[Clamp(Round(labxyz.x * HIST_MUL_X), 0, NUM_BINS_XYZ-1)].x++;
+	m_hist[Clamp(Round(labxyz.y * HIST_MUL_Y), 0, NUM_BINS_XYZ-1)].y++;
+	m_hist[Clamp(Round(labxyz.z * HIST_MUL_Z), 0, NUM_BINS_XYZ-1)].z++;
 	if(!isnan(labxyz.u))
 		m_hist[Clamp(Round(labxyz.u * HIST_MUL_N),0,NUM_BINS)].u++;
 	if(!isnan(labxyz.v))
@@ -252,9 +253,9 @@ inline void Region4DBig::InitializeRegion(PointXYZI *in, Vec3b color, const Norm
 	m_hist[Clamp(Round(labxyzuvw.a * HIST_MUL_A),0,NUM_BINS)].a++;
 	m_hist[Clamp(Round(labxyzuvw.b * HIST_MUL_B),0,NUM_BINS)].b++;
 	//Need to shift all these to make them positive
-	m_hist[Clamp(Round(labxyzuvw.x * HIST_MUL_X),0,NUM_BINS_XYZ)].x++;
-	m_hist[Clamp(Round(labxyzuvw.y * HIST_MUL_Y),0,NUM_BINS_XYZ)].y++;
-	m_hist[Clamp(Round(labxyzuvw.z * HIST_MUL_Z),0,NUM_BINS_XYZ)].z++;
+	m_hist[Clamp(Round(labxyzuvw.x * HIST_MUL_X),0,NUM_BINS_XYZ-1)].x++;
+	m_hist[Clamp(Round(labxyzuvw.y * HIST_MUL_Y),0,NUM_BINS_XYZ-1)].y++;
+	m_hist[Clamp(Round(labxyzuvw.z * HIST_MUL_Z),0,NUM_BINS_XYZ-1)].z++;
 	m_hist[Clamp(Round(labxyzuvw.u * HIST_MUL_OF),0,NUM_BINS)].u++;
 	m_hist[Clamp(Round(labxyzuvw.v * HIST_MUL_OF),0,NUM_BINS)].v++;
 	m_hist[Clamp(Round(labxyzuvw.w * HIST_MUL_OF),0,NUM_BINS)].w++;
@@ -263,8 +264,9 @@ inline void Region4DBig::InitializeRegion(PointXYZI *in, Vec3b color, const Norm
 	m_centroid3D.y = in->y;
 	m_centroid3D.z = in->z;
 	m_centroid3D.intensity = label;
-	m_nodes.reserve(76800);
-	m_neighbors.reserve(8);
+	//m_nodes.reserve(76800);
+	//m_nodes.reserve(8);
+	//m_neighbors.reserve(8);
 	m_nodes.push_back(in);
 	m_regions[0] = m_regions[1] = NULL;
 	m_numRegions = 0;
@@ -329,9 +331,9 @@ inline void Region4DBig::AddNode(PointXYZI *in, Vec3b color, const Normal &flow,
 	m_hist[Clamp(Round(labxyzuvw.a * HIST_MUL_A),0,NUM_BINS)].a++;
 	m_hist[Clamp(Round(labxyzuvw.b * HIST_MUL_B),0,NUM_BINS)].b++;
 	//Need to shift all these to make them positive
-	m_hist[Clamp(Round(labxyzuvw.x * HIST_MUL_X),0,NUM_BINS_XYZ)].x++;
-	m_hist[Clamp(Round(labxyzuvw.y * HIST_MUL_Y),0,NUM_BINS_XYZ)].y++;
-	m_hist[Clamp(Round(labxyzuvw.z * HIST_MUL_Z),0,NUM_BINS_XYZ)].z++;
+	m_hist[Clamp(Round(labxyzuvw.x * HIST_MUL_X),0,NUM_BINS_XYZ-1)].x++;
+	m_hist[Clamp(Round(labxyzuvw.y * HIST_MUL_Y),0,NUM_BINS_XYZ-1)].y++;
+	m_hist[Clamp(Round(labxyzuvw.z * HIST_MUL_Z),0,NUM_BINS_XYZ-1)].z++;
 	m_hist[Clamp(Round(labxyzuvw.u * HIST_MUL_OF),0,NUM_BINS)].u++;
 	m_hist[Clamp(Round(labxyzuvw.v * HIST_MUL_OF),0,NUM_BINS)].v++;
 	m_hist[Clamp(Round(labxyzuvw.w * HIST_MUL_OF),0,NUM_BINS)].w++;
@@ -398,7 +400,7 @@ void RegionTree3D::Create(const PointCloudBgr &in, PointCloudInt &labels, const 
 	Region3D* pRegion = NULL;
 	//printf("Original num of Segments: %d\n",num_segments);
 	numRegions = 0;
-	totRegions = (num_segments + 2) << 1 + 1;
+	totRegions = ((num_segments + 2) << 1) + 1;
 	region_list.resize(totRegions);
 	//float bad_point = std::numeric_limits<float>::quiet_NaN ();
 	for(j = 0; j < in.height; j++) {
@@ -516,7 +518,7 @@ void RegionTree4DBig::Create(deque<PointCloudBgr> &in, deque< pcl::PointCloud<pc
 	Region4DBig* pRegion;
 	numRegions = 0;
 	//not sure about this
-	totRegions = (num_segments + 2) << 1 + 1;
+	totRegions = ((num_segments + 2) << 1) + 1;
 	region_list.resize(totRegions);
 	for(k = 0; k < NUM_FRAMES; k++) {
 		//need to do something about the optical flow of the first image
@@ -1039,7 +1041,7 @@ void RegionTree3D::PropagateRegionHierarchy(int min_size) {
 	m_nodes[0] = region_list[pEdge->a];
 	m_propagated = true;
 	//delete lookup; //somehow I must have already deleted this?
-	delete edges;
+	delete[] edges;
 }
 
 template<>
@@ -1103,12 +1105,12 @@ void RegionTree4DBig::PropagateRegionHierarchy(int min_size) {
 	}
 	//printf("Graph joined, went through %d Edges\n",i);
 	//If everything goes well, there should be only one region left.
-	delete m_nodes;
+	delete[] m_nodes;
 	m_size = 1;
 	m_nodes = new Region4DBig*[1]();
 	pEdge--;
 	m_nodes[0] = region_list[pEdge->a];
 	m_propagated = true;
 	//delete lookup; //somehow I must have already deleted this?
-	delete edges;
+	delete[] edges;
 }

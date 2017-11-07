@@ -201,7 +201,7 @@ public:
 	RegionTreeType() : m_size(0), m_width(0), m_height(0), m_nodes(NULL), m_propagated(false) { }
 	RegionTreeType(int regions, int width, int height) : m_size(regions), m_width(width), m_height(height), m_propagated(false) {
 		//need to figure out why this is
-		int tmp = (regions + 2) << 1 + 1;
+		int tmp = ((regions + 2) << 1) + 1;
 		m_nodes = new T*[tmp]();
 		for(int i = 0; i < tmp; i++)
 			m_nodes[i] = NULL;
