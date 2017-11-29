@@ -25,7 +25,7 @@ using namespace std;
 using namespace pcl;
 using namespace cv;
 
-const char* PathFindExtension(string filename) {
+const char* PathFindExtension(std::string filename) {
     std::string::size_type idx;
 
     idx = filename.rfind('.');

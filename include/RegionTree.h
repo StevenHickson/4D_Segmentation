@@ -119,7 +119,7 @@ public:
 	}
 
 	void Release() {
-		if(m_numRegions > 0 && m_regions != NULL) {
+		if(m_numRegions > 0) {
 			for(int i = 0; i < m_numRegions; i++) {
 				if(m_regions[i] != NULL) {
 					m_regions[i]->Release();
@@ -163,7 +163,7 @@ public:
 	}
 	
 	void Release() {
-		if(m_numRegions > 0 && m_regions != NULL) {
+		if(m_numRegions > 0) {
 			for(int i = 0; i < m_numRegions; i++) {
 				if(m_regions[i] != NULL) {
 					m_regions[i]->Release();
@@ -198,7 +198,7 @@ public:
 	unsigned int m_hist_num;
 	//PointCloudBgr m_cloud;
 
-	RegionTreeType() : m_size(0), m_width(0), m_height(0), m_nodes(NULL), m_propagated(false) { }
+	RegionTreeType() : m_nodes(NULL), m_size(0), m_width(0), m_height(0), m_propagated(false) { }
 	RegionTreeType(int regions, int width, int height) : m_size(regions), m_width(width), m_height(height), m_propagated(false) {
 		//need to figure out why this is
 		int tmp = ((regions + 2) << 1) + 1;

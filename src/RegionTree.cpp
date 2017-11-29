@@ -39,7 +39,6 @@ inline void LAB::RGB2XYZ(int r, int g, int b, float *x, float *y, float *z) {
 	gg *= 100.0f;
 	bb *= 100.0f;
 
-	//Observer. = 2°, Illuminant = D65
 	*x = rr * 0.4124f + gg * 0.3576f + bb * 0.1805f;
 	*y = rr * 0.2126f + gg * 0.7152f + bb * 0.0722f;
 	*z = rr * 0.0193f + gg * 0.1192f + bb * 0.9505f;
@@ -130,9 +129,8 @@ inline void Region3D::InitializeRegion(PointXYZI *in, Vec3b color, const pcl::Po
 	m_centroid3D.y = m_min3D.y = m_max3D.y = in->y;
 	m_centroid3D.z = m_min3D.z = m_max3D.z = in->z;
 	m_centroid3D.intensity = label;
-	//m_nodes.reserve(76800);
-	//m_nodes.reserve(8);
-	//m_neighbors.reserve(8);
+	m_nodes.reserve(76800);
+	m_neighbors.reserve(8);
 	m_nodes.push_back(in);
 	m_regions[0] = m_regions[1] = NULL;
 	m_numRegions = 0;
@@ -264,9 +262,8 @@ inline void Region4DBig::InitializeRegion(PointXYZI *in, Vec3b color, const Norm
 	m_centroid3D.y = in->y;
 	m_centroid3D.z = in->z;
 	m_centroid3D.intensity = label;
-	//m_nodes.reserve(76800);
-	//m_nodes.reserve(8);
-	//m_neighbors.reserve(8);
+	m_nodes.reserve(76800);
+	m_neighbors.reserve(8);
 	m_nodes.push_back(in);
 	m_regions[0] = m_regions[1] = NULL;
 	m_numRegions = 0;
@@ -627,7 +624,7 @@ void SetBranch(RegionTree3D *tree, Region3D* region, int level, int label) {
 		label = region->m_centroid3D.intensity;
 		tree->top_regions.push_back(region);
 	}
-	if(region->m_numRegions != 0 && region->m_regions != NULL && region->m_regions[0] != NULL && region->m_regions[1] != NULL) {
+	if(region->m_numRegions != 0 && region->m_regions[0] != NULL && region->m_regions[1] != NULL) {
 		//I am not at the leaf level, tell my children to do proper
 		Region3D **branch = region->m_regions;
 		for(int i = 0; i < region->m_numRegions; i++) {
@@ -654,7 +651,7 @@ void SetBranch(RegionTree4DBig *tree, Region4DBig* region, int level, int label)
 		label = region->m_centroid3D.intensity;
 		tree->top_regions.push_back(region);
 	}
-	if(region->m_numRegions != 0 && region->m_regions != NULL) {
+	if(region->m_numRegions != 0) {
 		//I am not at the leaf level, tell my children to do proper
 		Region4DBig **branch = region->m_regions;
 		for(int i = 0; i < region->m_numRegions; i++) {
@@ -710,7 +707,7 @@ inline float HistDifference(Region3D &reg1, Region3D &reg2) {
 			++i; ++p1; ++p2;
 		}
 		float min = (fabsf(reg1.m_centroid3D.x - reg2.m_centroid3D.x) + fabsf(reg1.m_centroid3D.y - reg2.m_centroid3D.y) + fabsf(reg1.m_centroid3D.z - reg2.m_centroid3D.z)) / (reg1.m_size + reg2.m_size / 2);
-		float size_diff = float(fabsf(int(reg1.m_size) - int(reg2.m_size))) / (float(reg1.m_size + reg2.m_size) / 2);
+		float size_diff = float(abs(int(reg1.m_size) - int(reg2.m_size))) / (float(reg1.m_size + reg2.m_size) / 2);
 		return sad + CENTROID_MUL * min + size_diff * SIZE_MUL;
 	}
 	return 1000000;
@@ -730,7 +727,7 @@ inline float HistDifference(Region4DBig &reg1, Region4DBig &reg2) {
 			++i; ++p1; ++p2;
 		}
 		float min = (fabsf(reg1.m_centroid3D.x - reg2.m_centroid3D.x) +fabsf(reg1.m_centroid3D.y - reg2.m_centroid3D.y) +fabsf(reg1.m_centroid3D.z - reg2.m_centroid3D.z)) / (reg1.m_size + reg2.m_size / 2);
-		float size_diff = float(fabsf(int(reg1.m_size) - int(reg2.m_size))) / (float(reg1.m_size + reg2.m_size) / 2);
+		float size_diff = float(abs(int(reg1.m_size) - int(reg2.m_size))) / (float(reg1.m_size + reg2.m_size) / 2);
 		return sad + CENTROID_MUL * min + size_diff * SIZE_MUL;
 	}
 	return 1000000;
@@ -751,7 +748,6 @@ void RegionTree3D::TemporalCorrection(RegionTree3D &past, int level) {
 			pPast = past.region_list.begin();
 			float min;
 			float hist_diff;
-			int size_diff;
 			min = fabsf((*pCurr)->m_centroid3D.x - (*pPast)->m_centroid3D.x) + fabsf((*pCurr)->m_centroid3D.y - (*pPast)->m_centroid3D.y) + fabsf((*pCurr)->m_centroid3D.z - (*pPast)->m_centroid3D.z);
 			hist_diff = HistDifference(**pCurr,**pPast);
 			Region3D minLoc;
@@ -795,10 +791,6 @@ void RegionTree3D::TemporalCorrection(RegionTree3D &past, int level) {
 			//bipartite matching with red-black trees
 			if((*pCurr)->m_centroid3D.intensity == pastSeg[currSeg[**pCurr]].m_centroid3D.intensity) {
 				//the min should be normalized by the size somehow
-				//float min = (absf((pCurr)->m_centroid3D.x - currSeg[*pCurr].m_centroid3D.x) + absf((pCurr)->m_centroid3D.y -currSeg[*pCurr].m_centroid3D.y) + absf((pCurr)->m_centroid3D.z - currSeg[*pCurr].m_centroid3D.z)) / pCurr->m_size;
-				//int size_diff = absf(int((pCurr)->m_size) - int(currSeg[*pCurr].m_size));
-				//float hist_diff = HistDifference(*pCurr,currSeg[*pCurr]);
-				//if(hist_diff <= MIN_REGION_HIST && ((pCurr)->m_size < MAX_CONVERGING_SIZE || (size_diff <= (pCurr)->m_size * MIN_REGION_SIZE && min < MIN_REGION_DIST)))
 				SetBranch(this,*pCurr,(*pCurr)->m_level,currSeg[**pCurr].m_centroid3D.intensity);
 			}
 			++pCurr;
@@ -822,7 +814,6 @@ void iMergeRegions(RegionTree4DBig *tree, Region4DBig &past, Region4DBig *curr) 
 			pPast = past.m_regions;
 			float min;
 			float hist_diff;
-			int size_diff;
 			min = fabsf((*pCurr)->m_centroid3D.x - (*pPast)->m_centroid3D.x) + fabsf((*pCurr)->m_centroid3D.y - (*pPast)->m_centroid3D.y) + fabsf((*pCurr)->m_centroid3D.z - (*pPast)->m_centroid3D.z);
 			hist_diff = HistDifference(**pCurr,**pPast);
 			Region4DBig minLoc;
@@ -865,14 +856,8 @@ void iMergeRegions(RegionTree4DBig *tree, Region4DBig &past, Region4DBig *curr) 
 		for(int i = 0; i < curr->m_numRegions; i++) {
 			//bipartite matching with red-black trees
 			if((*pCurr)->m_centroid3D.intensity == pastSeg[currSeg[**pCurr]].m_centroid3D.intensity) {
-				//the min should be normalized by the size somehow
-				//float min = (fabsf((*pCurr)->m_centroid3D.x - currSeg[**pCurr].m_centroid3D.x) + fabsf((*pCurr)->m_centroid3D.y -currSeg[**pCurr].m_centroid3D.y) + fabsf((*pCurr)->m_centroid3D.z - currSeg[**pCurr].m_centroid3D.z)) / (*pCurr)->m_size;
-				//int size_diff = fabsf(int((pCurr)->m_size) - int(currSeg[*pCurr].m_size));
-				//float hist_diff = HistDifference(*pCurr,currSeg[*pCurr]);
-				//if(hist_diff <= MIN_REGION_HIST && ((pCurr)->m_size < MAX_CONVERGING_SIZE || (size_diff <= (pCurr)->m_size * MIN_REGION_SIZE && min < MIN_REGION_DIST)))
 				SetBranch(tree,*pCurr,(*pCurr)->m_level,currSeg[**pCurr].m_centroid3D.intensity);
-				if(currSeg[**pCurr].m_regions != NULL && (*pCurr)->m_regions != NULL)
-					iMergeRegions(tree,currSeg[**pCurr], *pCurr);
+				iMergeRegions(tree,currSeg[**pCurr], *pCurr);
 			}
 			++pCurr;
 		}
@@ -893,7 +878,6 @@ void RegionTree4DBig::TemporalCorrection(RegionTree4DBig &past, int level) {
 			pPast = past.region_list.begin();
 			float min;
 			float hist_diff;
-			int size_diff;
 			min = fabsf((*pCurr)->m_centroid3D.x - (*pPast)->m_centroid3D.x) + fabsf((*pCurr)->m_centroid3D.y - (*pPast)->m_centroid3D.y) + fabsf((*pCurr)->m_centroid3D.z - (*pPast)->m_centroid3D.z);
 			hist_diff = HistDifference(**pCurr,**pPast);
 			Region4DBig minLoc;
@@ -936,11 +920,6 @@ void RegionTree4DBig::TemporalCorrection(RegionTree4DBig &past, int level) {
 		for(int i = 0; i < m_size; i++) {
 			//bipartite matching with red-black trees
 			if((*pCurr)->m_centroid3D.intensity == pastSeg[currSeg[**pCurr]].m_centroid3D.intensity) {
-				//the min should be normalized by the size somehow
-				//float min = (fabsf((pCurr)->m_centroid3D.x - currSeg[*pCurr].m_centroid3D.x) + fabsf((pCurr)->m_centroid3D.y -currSeg[*pCurr].m_centroid3D.y) + fabsf((pCurr)->m_centroid3D.z - currSeg[*pCurr].m_centroid3D.z)) / pCurr->m_size;
-				//int size_diff = fabsf(int((pCurr)->m_size) - int(currSeg[*pCurr].m_size));
-				//float hist_diff = HistDifference(*pCurr,currSeg[*pCurr]);
-				//if(hist_diff <= MIN_REGION_HIST && ((pCurr)->m_size < MAX_CONVERGING_SIZE || (size_diff <= (pCurr)->m_size * MIN_REGION_SIZE && min < MIN_REGION_DIST)))
 				SetBranch(this,*pCurr,(*pCurr)->m_level,currSeg[**pCurr].m_centroid3D.intensity);
 			}
 			++pCurr;
@@ -1105,7 +1084,7 @@ void RegionTree4DBig::PropagateRegionHierarchy(int min_size) {
 	}
 	//printf("Graph joined, went through %d Edges\n",i);
 	//If everything goes well, there should be only one region left.
-	delete[] m_nodes;
+	delete m_nodes;
 	m_size = 1;
 	m_nodes = new Region4DBig*[1]();
 	pEdge--;

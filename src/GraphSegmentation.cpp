@@ -1,7 +1,6 @@
 #include "GraphSegmentation.h"
 #include <pcl/features/normal_3d.h>
 #include <pcl/features/integral_image_normal.h>
-//#include "RegionTree.h"
 
 #ifndef max
 #define max(a,b) ((a) > (b) ? (a) : (b))
@@ -428,7 +427,7 @@ void iBuildGraph(const deque< PointCloud<PointXYZRGBA> > &clouds,
 
 		Mat_<float>::const_iterator pR = smooth_r.begin<float>(), pG = smooth_g.begin<float>(), pB = smooth_b.begin<float>(), pD = smooth_d.begin<float>();
 		Mat_<float>::const_iterator pRBegin = pR, pGBegin = pG, pBBegin = pB, pDBegin = pD;
-		int currDepthIter = z * height * width, pastDepthIter = (z - 1) * height * width, priorDepthIter = NUM_FRAMES / 2 * height * width;
+		int currDepthIter = z * height * width, pastDepthIter = (z - 1) * height * width;
 		for ( y = 0, ym = -1, yp = 1; y < height; y++, ym++, yp++)
 		{
 			for ( x = 0, xp = 1; x < width; x++, xp++)
@@ -597,7 +596,7 @@ void iBuildGraph(const deque< PointCloud<PointXYZRGBA> > &clouds,
 
 		Mat_<float>::const_iterator pR = smooth_r.begin<float>(), pG = smooth_g.begin<float>(), pB = smooth_b.begin<float>(), pD = smooth_d.begin<float>();
 		Mat_<float>::const_iterator pRBegin = pR, pGBegin = pG, pBBegin = pB, pDBegin = pD;
-		int currDepthIter = z * height * width, pastDepthIter = (z - 1) * height * width, priorDepthIter = NUM_FRAMES / 2 * height * width;
+		int currDepthIter = z * height * width, pastDepthIter = (z - 1) * height * width;
 		for ( y = 0, ym = -1, yp = 1; y < height; y++, ym++, yp++)
 		{
 			for ( x = 0, xp = 1; x < width; x++, xp++)
