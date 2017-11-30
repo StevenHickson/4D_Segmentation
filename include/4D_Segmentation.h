@@ -3,8 +3,8 @@ Copyright (C) 2017 Steven Hickson
 MIT License
 */
 
-#ifndef 4D_SEGMENTATION_H
-#define 4D_SEGMENTATION_H
+#ifndef SEGMENTATION_4D_H
+#define SEGMENTATION_4D_H
 
 #include <iostream>
 #include <pcl/io/pcd_io.h>
@@ -80,4 +80,4 @@ public:
 		pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &out_color);
 };
 
-#endif //4D_SEGMENTATION_H
+#endif //SEGMENTATION_4D_H
