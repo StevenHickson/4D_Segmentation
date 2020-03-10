@@ -6,8 +6,8 @@ using namespace std;
 
 void ComputeOpticalFlow(const Mat &past, const Mat &current, const PointCloud<PointXYZRGBA>::ConstPtr &pastCloud, const PointCloud<PointXYZRGBA>::ConstPtr &currCloud, PointCloud<Normal>::Ptr &flow) {
 	Mat in1, in2, flow2d;
-	cvtColor(past,in1,CV_BGR2GRAY);
-	cvtColor(current,in2,CV_BGR2GRAY);
+	cvtColor(past,in1,cv::COLOR_BGR2GRAY);
+	cvtColor(current,in2,cv::COLOR_BGR2GRAY);
 	calcOpticalFlowFarneback(in1,in2,flow2d,0.5f,2,5,2,7,1.5,0);
 	flow->height = flow2d.rows;
 	flow->width = flow2d.cols;

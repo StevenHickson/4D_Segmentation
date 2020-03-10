@@ -34,7 +34,7 @@ inline int Round (float a)
 {
 	//assert( !_isnan( a ) );
 	//Recently started happening. This has to be a pointer error somewhere that I need to figure out
-	if(isnan( a )) {
+	if(std::isnan( a )) {
 		//printf("This should never happen!!");
 		return 0;
 	}

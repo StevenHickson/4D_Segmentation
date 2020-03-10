@@ -52,7 +52,7 @@ Mat imread_depth(const char* fname, bool binary) {
         }
         fclose(fp);
     } else if(strncmp(ext,char_png,strlen(char_png))==0) {
-        out = imread(fname,CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
+        out = imread(fname,cv::IMREAD_ANYDEPTH);
         out.convertTo(out, CV_32S);
         int* pi = (int*)out.data;
         for (int y=0; y < out.rows; y++) {
@@ -138,6 +138,16 @@ inline void GetMatFromCloud(const PointCloudInt &cloud, Mat &img) {
     }
 }
 
+inline void GetMatFromCloud(const PointCloud<PointXYZRGBA> &cloud, Mat &img) {
+    img = Mat(cloud.height,cloud.width,CV_8UC3);
+    Mat_<Vec3b>::iterator pI = img.begin<Vec3b>();
+    PointCloud<PointXYZRGBA>::const_iterator pC = cloud.begin();
+    while(pC != cloud.end()) {
+        *pI = Vec3b(pC->b,pC->g,pC->r);
+        ++pI; ++pC;
+    }
+}
+
 void LoadData(string direc, int i, Mat &img, Mat &depth, Mat &label) {
     stringstream num;
     num << i;
@@ -188,6 +198,38 @@ void CreatePointCloudFromRegisteredNYUData(const Mat &img, const Mat &depth, Poi
     cloud->sensor_orientation_.z () = 0.0;
 }
 
+void CreatePointCloudWithZeroDepth(const Mat &img,PointCloudBgr *cloud) {
+    //assert(!img.IsNull() && !depth.IsNull());
+    //take care of old cloud to prevent memory leak/corruption
+    if (cloud != NULL && cloud->size() > 0) {
+        cloud->clear();
+    }
+    cloud->header.frame_id =  "/microsoft_rgb_optical_frame";
+    cloud->height = img.rows;
+    cloud->width = img.cols;
+    cloud->is_dense = true;
+    cloud->points.resize (cloud->height * cloud->width);
+    PointCloud<PointXYZRGBA>::iterator pCloud = cloud->begin();
+    Mat_<Vec3b>::const_iterator pImg = img.begin<Vec3b>();
+    for(int j = 0; j < img.rows; j++) {
+        for(int i = 0; i < img.cols; i++) {
+            pCloud->z = 0.0f;
+            pCloud->y = 0.0f;
+            pCloud->x = 0.0f;
+            pCloud->b = (*pImg)[0];
+            pCloud->g = (*pImg)[1];
+            pCloud->r = (*pImg)[2];
+            pCloud->a = 255;
+            pImg++; pCloud++;
+        }
+    }
+    cloud->sensor_origin_.setZero ();
+    cloud->sensor_orientation_.w () = 1.0;
+    cloud->sensor_orientation_.x () = 0.0;
+    cloud->sensor_orientation_.y () = 0.0;
+    cloud->sensor_orientation_.z () = 0.0;
+}
+
 void Seg4DExample(string data_folder, bool fast=false) {
     boost::shared_ptr< pcl::PointCloud<pcl::PointXYZRGBA> > cloud(new pcl::PointCloud<pcl::PointXYZRGBA>);
     boost::shared_ptr< pcl::PointCloud<pcl::PointXYZI> > label(new pcl::PointCloud<pcl::PointXYZI>);
@@ -209,17 +251,18 @@ void Seg4DExample(string data_folder, bool fast=false) {
 
 	RGBDTSegmentation segments(options);
 
+  /*
 	PCDReader reader;
 	int i = 1;
 	while(i < 1450) {
 		//read the pointcloud file
-		/*stringstream fileName;
-		fileName << data_folder;
-		fileName << i;
-		fileName << ".pcd";
-		reader.read<pcl::PointXYZRGBA> (fileName.str(), *cloud);
-		cloud->width = 640;
-		cloud->height = 480;*/
+		//stringstream fileName;
+		//fileName << data_folder;
+		//fileName << i;
+		//fileName << ".pcd";
+		//reader.read<pcl::PointXYZRGBA> (fileName.str(), *cloud);
+		//cloud->width = 640;
+		//cloud->height = 480;
         LoadData(data_folder,i,img,depth,label_mat);
         CreatePointCloudFromRegisteredNYUData(img,depth,&*cloud);
 
@@ -243,7 +286,14 @@ void Seg4DExample(string data_folder, bool fast=false) {
             cout << "Empty cloud" << endl;
 
 		++i;
-	}
+	}*/
+
+  img = imread(data_folder);
+  CreatePointCloudWithZeroDepth(img,&*cloud);
+	segments.AddSlice(cloud, label, label_color);
+  Mat output;
+  GetMatFromCloud(*label_color, output);
+  imwrite(data_folder + "_seg.png", output);
 }
 
 int main (int argc, char** argv) {
