@@ -1,6 +1,6 @@
 project(4D_Segmentation)
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
-
+set (CMAKE_CXX_STANDARD 11)
 SET_PROPERTY(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
 
 IF(WIN32 OR win64)
@@ -8,7 +8,6 @@ IF(WIN32 OR win64)
 ELSE()
    SET(CMAKE_FIND_LIBRARY_SUFFIXES .a)
 ENDIF()
-
 
 find_package(PCL 1.7 REQUIRED)
 find_package( OpenCV REQUIRED )
@@ -18,6 +17,7 @@ add_subdirectory(src)
 
 include_directories(C:/opencv/build)
 include_directories(${PCL_INCLUDE_DIRS})
+include_directories(SYSTEM ${EIGEN_INCLUDE_DIRS})
 include_directories(${4D_Segmentation_SOURCE_DIR}/include)
 
 link_directories(${PCL_LIBRARY_DIRS})
